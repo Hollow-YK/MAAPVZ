@@ -123,5 +123,5 @@
         "action": "StopTask",
         "focus": "[color:Orange]成功返回主界面[/color]",
         "next": []
-    },
+    }
 }
