@@ -12,7 +12,8 @@
             "back_to_home/活动的返回.png",
             "back_to_home/时空秘境_返回.png",
             "back_to_home/潘妮秘宝的叉叉.png",
-            "back_to_home/超z的叉叉.png"
+            "back_to_home/超z的叉叉.png",
+            "back_to_home/世界关卡的叉叉.png"
         ],
         "action": "Click",
         "threshold": [
