@@ -112,7 +112,8 @@
         "action": "Click",
         "next": [
             "埃及8_点击继续",
-            "埃及8_清空植物栏"
+            "埃及8_清空植物栏",
+            "埃及8_开始战斗(选卡)"
         ]
     },
     "埃及8_清空植物栏": {
@@ -131,9 +132,7 @@
         "action": "Click",
         "next": [
             "埃及8_清空植物栏",
-            "埃及8_原始向日葵",
             "埃及8_仙人掌",
-            "埃及8_向日葵",
             "埃及8_滑动"
         ]
     },
@@ -163,9 +162,7 @@
             1
         ],
         "next": [
-            "埃及8_原始向日葵",
             "埃及8_仙人掌",
-            "埃及8_向日葵",
             "埃及8_检索阵容完整性",
             "埃及8_滑动"
         ]
@@ -196,36 +193,9 @@
         ],
         "repeat": 10,
         "next": [
-            "埃及8_原始向日葵",
             "埃及8_仙人掌",
-            "埃及8_向日葵",
             "埃及8_检索阵容完整性",
             "埃及8_滑动"
-        ]
-    },
-    "埃及8_原始向日葵": {
-        "recognition": "TemplateMatch",
-        "max_hit": 1,
-        "template": [
-            "get_gold_coins/选择卡牌_原始向日葵.png"
-        ],
-        "roi": [
-            130,
-            374,
-            608,
-            315
-        ],
-        "target_offset": [
-            17,
-            0,
-            0,
-            0
-        ],
-        "action": "Click",
-        "post_delay": 1000,
-        "next": [
-            "埃及8_原始向日葵",
-            "埃及8_滑回最顶上"
         ]
     },
     "埃及8_仙人掌": {
@@ -252,84 +222,181 @@
             "埃及8_滑回最顶上"
         ]
     },
-    "埃及8_向日葵": {
-        "recognition": "TemplateMatch",
-        "max_hit": 1,
-        "template": [
-            "get_gold_coins/选择卡牌_向日葵.png",
-            "get_gold_coins/选择卡牌_向日葵_超装.png"
-        ],
-        "roi": [
-            130,
-            374,
-            608,
-            315
-        ],
-        "target_offset": [
-            17,
-            0,
-            0,
-            0
-        ],
-        "action": "Click",
-        "post_delay": 1000,
-        "next": [
-            "埃及8_滑回最顶上"
-        ]
-    },
     "埃及8_检索阵容完整性": {
         "recognition": "TemplateMatch",
         "template": [
-            "get_gold_coins/埃及1_空的三号位.png"
+            "get_gold_coins/埃及8_空的一号位.png"
         ],
         "inverse": true,
         "threshold": [
             0.6
         ],
         "roi": [
-            2,
-            213,
-            135,
-            98
-        ],
-        "next": []
-    },
-    "测试多点": {
-        "recognition": "DirectHit",
-        "action": "TouchDown",
-        "contact": 0,
-        "target": [
-            382,
-            59
+            18,
+            87,
+            100,
+            69
         ],
         "next": [
-            "测试多点_1"
+            "埃及8_选择多余植物进行占位"
         ]
     },
-    "测试多点_1": {
+    "埃及8_选择多余植物进行占位": {
         "recognition": "DirectHit",
-        "action": "TouchDown",
-        "contact": 1,
-        "target": [
-            382,
-            129
+        "max_hit": 16,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "OffsetClick_y",
+                "custom_action_param": {
+                    "initial_x": 193,
+                    "initial_y": 437,
+                    "dx": 119,
+                    "max_hits": 6,
+                    "n": -100
+                },
+                "target": true
+            }
+        },
+        "next": [
+            "埃及8_选择多余植物进行占位",
+            "埃及8_开始战斗(选卡)"
+        ]
+    },
+    "埃及8_开始战斗(选卡)": {
+        "recognition": "OCR",
+        "expected": [
+            "开始战斗"
+        ],
+        "roi": [
+            1090,
+            654,
+            139,
+            40
+        ],
+        "focus": "开始战斗",
+        "action": "Click",
+        "post_wait_freezes": 1000,
+        "next": [
+            "埃及8_进入到局内"
+        ]
+    },
+    "埃及8_进入到局内": {
+        "recognition": "OCR",
+        "expected": [
+            "第8天"
+        ],
+        "threshold": 0.3,
+        "roi": [
+            823,
+            75,
+            77,
+            41
         ],
         "next": [
-            "测试多点_2"
+            "埃及8_局内_种植仙人掌"
         ]
     },
-    "测试多点_2": {
-        "recognition": "DirectHit",
-        "action": "TouchUp",
-        "contact": 0,
+    "埃及8_局内_种植仙人掌": {
+        "action": "Custom",
+        "custom_action": "BatchSwipe",
+        "custom_action_param": "@0.1;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子1_1;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子1_2;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子1_3;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子1_4;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子1_5;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子2_1;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子2_2;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子2_3;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子2_4;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子2_5;swipe:种植物_初始化_第一个槽位,种植物_初始化_格子3_3",
+        "pre_delay": 0,
+        "post_delay": 200,
         "next": [
-            "测试多点_3"
+            "埃及8_开始战斗(局内)"
         ]
     },
-    "测试多点_3": {
-        "recognition": "DirectHit",
-        "action": "TouchUp",
-        "contact": 1,
-        "next": []
+    "埃及8_开始战斗(局内)": {
+        "recognition": "OCR",
+        "expected": [
+            "开始战斗"
+        ],
+        "threshold": 0.3,
+        "roi": [
+            980,
+            68,
+            223,
+            97
+        ],
+        "action": "Click",
+        "post_delay": 2000,
+        "next": [
+            "埃及8_开始战斗(局内)",
+            "埃及8_加速",
+            "埃及8_胜利"
+        ]
+    },
+    "埃及8_加速": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "get_gold_coins/关卡内_加速.png"
+        ],
+        "action": "Click",
+        "roi": [
+            1138,
+            5,
+            75,
+            68
+        ],
+        "post_wait_freezes": 300,
+        "next": [
+            "埃及8_下一波",
+            "埃及8_胜利"
+        ]
+    },
+    "埃及8_下一波": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "get_gold_coins/下一波.png"
+        ],
+        "action": "Click",
+        "roi": [
+            1184,
+            174,
+            93,
+            82
+        ],
+        "post_wait_freezes": 300,
+        "next": [
+            "埃及8_下一波",
+            "埃及8_胜利",
+            "埃及8_确认在局内"
+        ]
+    },
+    "埃及8_确认在局内": {
+        "recognition": "TemplateMatch",
+        "template": [
+            "get_gold_coins/关卡内_加速（已按）.png"
+        ],
+        "roi": [
+            1135,
+            -2,
+            126,
+            140
+        ],
+        "next": [
+            "埃及8_下一波",
+            "埃及8_胜利"
+        ]
+    },
+    "埃及8_胜利": {
+        "recognition": "OCR",
+        "expected": [
+            "继续"
+        ],
+        "roi": [
+            583,
+            621,
+            106,
+            46
+        ],
+        "action": "Click",
+        "pre_delay": 1500,
+        "post_delay": 1000,
+        "next": [
+            "埃及8_寻找关卡特征",
+            "埃及8_胜利"
+        ]
     }
 }
