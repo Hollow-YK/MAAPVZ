@@ -784,7 +784,8 @@
             213,
             88
         ],
-        "action": "Click",
+        // "action": "Click",测试
+        "action": "StopTask",
         "next": [
             "地宫1_结算_重置锁存"
         ]
