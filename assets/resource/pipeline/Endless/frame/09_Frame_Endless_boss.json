@@ -81,10 +81,10 @@
             "Endless/frame/boss/无尽_未来boss关.png"
         ],
         "roi": [
-            759,
-            26,
-            510,
-            683
+            740,
+            89,
+            528,
+            619
         ],
         "threshold": [
             0.99
