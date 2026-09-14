@@ -16,7 +16,7 @@ except Exception:
     _DIRECT_RECOGNITION = False
 
 # 加载标记：用于确认 MAA 代理实际加载的版本（重载插件后应看到本行）
-print("[BatchSwipe] batch_swipe.py 已加载 · 版本 v11（watch/ref/roi(键名)/every/fixed/权重@N/异步组{!…}/附属块attach/多指动作multi）")
+print("[BatchSwipe] batch_swipe.py 已加载 · 版本 v14（watch/ref/roi(键名)/every/fixed(N或block,含多指)/固定动作前先识别/权重@N/异步组{!…}/附属块attach/多指动作multi）")
 
 
 @AgentServer.custom_action("BatchSwipe")
@@ -32,9 +32,19 @@ class BatchSwipe(CustomAction):
                               节点名后可加 @inv（如 ref:节点A@inv）：把该节点的命中结果再反转一次，用于 inverse:true 的节点（取“正向出现”语义）。
         roi:盒1|盒2         —— 可选，全局识别范围（多个盒，每个盒可为 x,y,w,h 或坐标表键名），作用于所有未自带区域的 watch。缺省为全屏。
         every:N             —— 可选，每 N 个动作识别一次（默认 1 = 每个动作后都识别）。输入 3 表示每 3 个动作识别一次。
-        fixed:N:动作         —— 可选，固定动作：每执行 N 个普通动作就额外执行一次「动作」（不占 N 的计数）。动作可为 swipe/click/sleep。
+        fixed:N:动作         —— 可选，固定动作：每执行 N 个普通动作就额外执行一次「动作」（不占 N 的计数）。动作可为 swipe/click/sleep/multi。
                             例：fixed:5:swipe:收取按钮,收取框,50（每 5 个动作后滑一次收取）；fixed:3:click:确认按钮（每 3 个动作点一次确认）。
+                            多指也可当固定动作（走原生 MultiSwipe 真并发）：
+                            例：fixed:4:multi:(1阳光起始点,1阳光终点,80;2阳光起始点,2阳光终点,80)
                             说明：fixed 与 every 独立计数；识别命中会先中断（不补执行 fixed）。N 为 0 或负数按 1 处理。
+                            ⚠️ every:N>1 时识别点不落在固定动作那一步，所以**执行固定动作前会再识别一次**：
+                               命中就不执行这次固定动作，直接停止本批、跟随 next（避免「早该跳 next 了还多做一下」）。
+        fixed:block:动作     —— 固定动作的**另一种触发方式**：每个「顺序块」结束后执行一次「动作」（同样不占 N 的计数、不参与识别点）。
+                            「顺序块」= 参数里被 空随机块 {} / 随机块 {…} / 异步组 {!…} / 附属块 attach:(…) 隔开的一段顺序动作；
+                            最后一段顺序动作跑完（本批次结束前）也会执行一次。
+                            单个 {} 就是一道分界，所以 A;B;{};C;D 是「两个顺序块」→ 共执行 2 次（B 之后一次、D 之后一次）。
+                            例：swipe:种,格;swipe:种,格;{};swipe:收,框;fixed:block:click:确认（每跑完一个顺序块点一次确认）
+                            说明：随机块 {…} 本身不算顺序块（它结束时不触发）；block 与 every:N 只能二选一。
         @N 权重              —— 在随机块 / 随机池的元素末尾加 @数字（如 {swipe:a,b@2;swipe:c,d@5} 块内随机；{块A}@3;{块B}@1 块间池随机）。
                             权重越大越可能被排到前面（加权随机，默认 1）。仅对「参与随机」的元素有效，顺序执行的元素忽略。
         {!动作;动作;…}      —— 异步组：整组动作「提交后不等待」连续压入控制器队列，组内**有序**（不打乱），
@@ -309,22 +319,29 @@ class BatchSwipe(CustomAction):
                     return None
                 actions.append({'type': 'every', 'n': n})
             elif act_type == 'fixed':
-                # fixed:N:动作 —— 每执行 N 个普通动作就额外执行一次该固定动作（动作可为 swipe/click/sleep）
+                # fixed:N:动作     —— 每执行 N 个普通动作就额外执行一次该固定动作
+                # fixed:block:动作 —— 每个顺序块结束后执行一次该固定动作
+                # （动作可为 swipe/click/sleep/multi）
                 inner = args_str.split(':', 1)
                 if len(inner) < 2:
                     print(f"[BatchSwipe] fixed 需要 N 和动作（如 fixed:5:swipe:收,框,50）: {cmd}")
                     return None
-                try:
-                    n = int(inner[0].strip())
-                except ValueError:
-                    print(f"[BatchSwipe] fixed 的 N 不是整数: {cmd}")
-                    return None
-                n = n if n > 0 else 1
+                tok = inner[0].strip().lower()
+                if tok in ('block', 'blocks'):
+                    mode, n = 'block', 0
+                else:
+                    try:
+                        n = int(tok)
+                    except ValueError:
+                        print(f"[BatchSwipe] fixed 的 N 不是整数（也不是 block）: {cmd}")
+                        return None
+                    mode = 'every'
+                    n = n if n > 0 else 1
                 sub = self._parse_actions(inner[1].strip())
                 if not sub or len(sub) != 1 or not isinstance(sub[0], dict):
-                    print(f"[BatchSwipe] fixed 需要单个动作（swipe/click/sleep）: {cmd}")
+                    print(f"[BatchSwipe] fixed 需要单个动作（swipe/click/sleep/multi）: {cmd}")
                     return None
-                actions.append({'type': 'fixed', 'every': n, 'action': sub[0]})
+                actions.append({'type': 'fixed', 'mode': mode, 'every': n, 'action': sub[0]})
             elif act_type == 'resume':
                 # 断点续做：记录本批次洗牌后的顺序与已完成条数，下次按同一顺序跳过已做、继续做
                 actions.append({'type': 'resume'})
@@ -737,10 +754,41 @@ class BatchSwipe(CustomAction):
             return n if n > 0 else 1
         return 1
 
+    # 会真的发到设备上的动作类型（其余 token 是识别/节奏/固定动作之类的配置）
+    EXEC_TYPES = ('swipe', 'click', 'sleep', 'multi')
+
+    @classmethod
+    def _mark_block_ends(cls, acts):
+        """给「这一段顺序动作」里最后一个可执行动作打上 _block_end（供 fixed:block 用）。
+
+        段内若夹着附属块 attach:(…)，它本身就是一道分界（参数里的位置就是语义）：
+        A;A;attach:(S);C;C 会得到两段 → A 的末尾、C 的末尾各打一次。
+        段末（本批次结束前）同样算一次。
+        """
+        for i, a in enumerate(acts):
+            if not isinstance(a, dict):
+                continue
+            if str(a.get('type', '')).lower() not in cls.EXEC_TYPES:
+                continue
+            nxt = None
+            for b in acts[i + 1:]:
+                if not isinstance(b, dict):
+                    continue
+                tb = str(b.get('type', '')).lower()
+                if tb in cls.EXEC_TYPES:
+                    nxt = 'exec'
+                    break
+                if tb == 'attach':
+                    nxt = 'attach'
+                    break
+            if nxt != 'exec':
+                a['_block_end'] = True
+        return acts
+
     @staticmethod
     def _collect_fixed(actions):
-        """提取固定动作（fixed:N:动作），无则返回 None。
-        返回：{'type':'fixed','every':N,'action':{...}}（第一个匹配）。"""
+        """提取固定动作（fixed:N:动作 / fixed:block:动作），无则返回 None。
+        返回：{'type':'fixed','mode':'every'|'block','every':N,'action':{...}}（第一个匹配）。"""
         for act in actions:
             if isinstance(act, dict) and str(act.get('type', '')).lower() == 'fixed':
                 return act
@@ -1125,6 +1173,7 @@ class BatchSwipe(CustomAction):
                     acts = self._parse_actions(block_content)
                     if acts is None:
                         return False
+                    self._mark_block_ends(acts)      # ★ 顺序块：段末打点（fixed:block 用）
                     final_actions.extend(acts)
                 elif block_type == 'async':
                     # 异步组：{!@间隔;动作;动作;…}
@@ -1174,11 +1223,13 @@ class BatchSwipe(CustomAction):
                 ordered_actions = self._parse_actions(ordered_part) if ordered_part else []
                 if ordered_actions is None:
                     return False
+                self._mark_block_ends(ordered_actions)     # ★ 顺序部分：段末打点
                 actions = random_actions + ordered_actions
             else:
                 actions = self._parse_actions(param_str)
                 if actions is None:
                     return False
+                self._mark_block_ends(actions)             # ★ 整段就是一个顺序块
 
         # 提取识别触发(watch/ref)、全局 roi、识别间隔、固定动作（若有），并从执行列表中剔除（它们不实际顺序执行）
         resume = self._collect_resume(actions)
@@ -1208,6 +1259,10 @@ class BatchSwipe(CustomAction):
             if not (isinstance(a, dict) and str(a.get('type', '')).lower() in ('watch', 'ref', 'roi', 'every', 'resume', 'reset', 'fixed', 'attach', 'attach_every', 'attach_mode', 'attach_start'))
         ]
         fixed_every = int(fixed_act.get('every', 1)) if fixed_act else 0
+        # 固定动作的两种触发方式：every = 每 N 个动作；block = 每个顺序块结束后
+        fixed_mode = str(fixed_act.get('mode', 'every')).lower() if fixed_act else 'every'
+        if fixed_mode not in ('every', 'block'):
+            fixed_mode = 'every'
 
         # 预检坐标：缺任何一个键就一次性列出，避免执行到一半才因坐标失败
         missing = self._missing_coords(actions)
@@ -1325,17 +1380,35 @@ class BatchSwipe(CustomAction):
                 self._PROGRESS[argv.node_name]['done'] = executed
             # 每 N 个动作识别一次（every:N，默认 1）。命中即停止剩余动作，跟随当前节点 next 列表执行
             # 识别前必须排空，否则截图会截到 swipe 的中间帧
-            if watch_triggers and executed % watch_every == 0:
+            watch_due = bool(watch_triggers) and (executed % watch_every == 0)
+            if watch_due:
                 _drain()
                 if self._watch_check(context, controller, watch_triggers, watch_rois):
                     print(f"[BatchSwipe] 🔍 执行第 {executed}/{total} 个动作后识别到命中内容，停止剩余动作，跟随当前节点 next 列表执行")
                     return True
             # 固定动作：每 fixed_every 个普通动作后额外执行一次（不占 N 的计数；识别命中会先中断，不补执行 fixed）
-            if fixed_act and executed % fixed_every == 0:
-                print(f"[BatchSwipe] 🔁 执行第 {executed}/{total} 个动作后，执行固定动作（每 {fixed_every} 次一次）")
-                if not _submit_or_run(fixed_act['action'], pos="固定动作"):
-                    _drain()
-                    return False
+            #           或 block 模式：每个顺序块结束后额外执行一次（_block_end 在解析时打好）
+            if fixed_act:
+                if fixed_mode == 'block':
+                    fire_fixed = bool(act.get('_block_end'))
+                    why = '本顺序块结束'
+                else:
+                    fire_fixed = fixed_every > 0 and executed % fixed_every == 0
+                    why = f'每 {fixed_every} 次一次'
+                if fire_fixed:
+                    # ★ 固定动作也要先看识别：every:N>1 时识别点不一定落在这个动作上，
+                    #   不然「屏幕早就该跳 next 了」却还在这里多做一个固定动作（会把主块节奏打乱）。
+                    #   命中 → 不执行固定动作，直接停（跟随 next）。
+                    if watch_triggers and not watch_due:
+                        _drain()
+                        if self._watch_check(context, controller, watch_triggers, watch_rois):
+                            print(f"[BatchSwipe] 🔍 固定动作前识别到命中内容（第 {executed}/{total} 个动作后），"
+                                  f"跳过本次固定动作并停止剩余动作，跟随当前节点 next 列表执行")
+                            return True
+                    print(f"[BatchSwipe] 🔁 执行第 {executed}/{total} 个动作后，执行固定动作（{why}）")
+                    if not _submit_or_run(fixed_act['action'], pos="固定动作"):
+                        _drain()
+                        return False
             # 间隔：异步组内的动作用组内间隔（默认 0），其余用全局 interval
             eff_interval = interval
             if isinstance(act, dict) and act.get('_async'):

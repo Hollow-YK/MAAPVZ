@@ -12,10 +12,16 @@
     "地宫2_阳光_找色": {
         "recognition": "ColorMatch",
         "method": 40,
+        "roi": [
+            73,
+            126,
+            41,
+            26
+        ],
         "lower": [
             0,
             255,
-            255
+            248
         ],
         "upper": [
             0,
