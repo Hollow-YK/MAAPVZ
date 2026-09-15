@@ -16,7 +16,7 @@ except Exception:
     _DIRECT_RECOGNITION = False
 
 # 加载标记：用于确认 MAA 代理实际加载的版本（重载插件后应看到本行）
-print("[BatchSwipe] batch_swipe.py 已加载 · 版本 v14（watch/ref/roi(键名)/every/fixed(N或block,含多指)/固定动作前先识别/权重@N/异步组{!…}/附属块attach/多指动作multi）")
+print("[BatchSwipe] batch_swipe.py 已加载 · 版本 v16（watch/ref/roi(键名)/every(N或block,块末识别)/fixed(N或block,含多指)/固定动作前先识别/权重@N/异步组{!…}/附属块attach/多指动作multi/断点续做(动作级·顺序块级·只在本次任务内)）")
 
 
 @AgentServer.custom_action("BatchSwipe")
@@ -32,6 +32,12 @@ class BatchSwipe(CustomAction):
                               节点名后可加 @inv（如 ref:节点A@inv）：把该节点的命中结果再反转一次，用于 inverse:true 的节点（取“正向出现”语义）。
         roi:盒1|盒2         —— 可选，全局识别范围（多个盒，每个盒可为 x,y,w,h 或坐标表键名），作用于所有未自带区域的 watch。缺省为全屏。
         every:N             —— 可选，每 N 个动作识别一次（默认 1 = 每个动作后都识别）。输入 3 表示每 3 个动作识别一次。
+        every:block         —— 可选，**每个顺序块结束后**识别一次（块末 = 顺序块最后一个动作做完、固定动作之前）。
+                               「顺序块」的定义与 fixed:block 完全一致（空随机块 {} / 随机块 {…} / 异步组 {!…} / 附属块 attach:(…) 都是分界）。
+                               只写 every:block 时不再按动作点识别；需要「每 N 个动作 + 每个顺序块结束」都认，
+                               就两个都写（every:3;every:block），识别点 = 两者的并集。
+                               ⚠️ every:block 的识别点正好落在「固定动作之前」，所以和 fixed:block 一起用时
+                                  命中会先停本批、不执行这次固定动作（这就是「出 next」最想看到的行为）。
         fixed:N:动作         —— 可选，固定动作：每执行 N 个普通动作就额外执行一次「动作」（不占 N 的计数）。动作可为 swipe/click/sleep/multi。
                             例：fixed:5:swipe:收取按钮,收取框,50（每 5 个动作后滑一次收取）；fixed:3:click:确认按钮（每 3 个动作点一次确认）。
                             多指也可当固定动作（走原生 MultiSwipe 真并发）：
@@ -91,8 +97,24 @@ class BatchSwipe(CustomAction):
               已实测：默认值会退化到 AdbShell，多指静默失效）；② 走 context.run_action + 原生 MultiSwipe。
               另外「一指拖植物 + 一指领阳光」游戏端是否接受，需要实机确认；
               若发现种植失败，把 attach_mode 改成 insert。
-        resume              —— 可选，断点续做：记录本批次洗牌后的执行顺序与已完成条数；下次进入同一节点按同一顺序跳过已做、继续做。全部做完自动清除进度。
-        reset               —— 可选，清除该节点的断点进度（配合 resume 使用）。
+        resume              —— 可选，断点续做：**精确到「第几个顺序块的第几个动作」**。
+                               ★ 生效范围：**只在当前这次任务运行（也就是当前这条 next 链）里**。
+                                 MAA 每次「开始任务 / 重新开启任务」都会 post 一个新任务（新的 task_id），
+                                 一旦换了任务，上一轮留下的断点进度**全部作废**，本节点从第 1 个动作重新开始。
+                                 同一任务内被 next 链绕回来（比如触发命中→走了 next→过一会儿又回到这个节点），
+                                 才会从上次断掉的那个动作继续。进度只放在内存里，**不生成任何文件**。
+                               语义（关键）：进度记的是「**还没做完的那个动作**」——
+                               我在 5 个动作的顺序块的第 2 个动作断掉，下次回来就从第 2 个动作重做，
+                               不会跳到第 3 个，也不会退回第 1 个。具体：
+                                 · 动作发出去一半就被打断（任务被杀 / 崩溃）→ 从那个动作重做；
+                                 · 做完某动作后「识别触发」命中而停批（要走 next）→ 也从那个动作重做
+                                   （因为它很可能没被游戏结算，重做一次最稳）；
+                                 · 前面的动作照常跳过，随机块沿用上次洗牌后的顺序（不会重排打乱进度）。
+                               日志会明说续在哪里，例如：
+                                 [BatchSwipe] ⏯ 断点续做：上次断在 第 1 个顺序块的第 2 个动作（全程第 2 个），
+                                              本次从 第 1 个顺序块的第 2 个动作（全程第 2 个）继续（已完成 1/5）
+                               （旧参数里的 resume:disk 仍能读，但已经不会落盘了 —— 重新开任务照样从头开始。）
+        reset               —— 可选，清除该节点的断点进度（只在当前任务内有效）。
         watch / ref 可各放多个（即多状态/多触发），任一命中即触发；不配置时行为与原来完全一致。
         说明：roi 里的“盒”既可直接写数字 x,y,w,h，也可写坐标表(索引 JSON)里的键名（该键值为 [x,y,w,h] 时做识别区域）。
              文件路径（如 load_coords）会自动兼容“Agent 启动后工作目录切到 agent”的情况：相对路径先在当前目录找，找不到再按插件脚本所在目录回退。
@@ -103,8 +125,12 @@ class BatchSwipe(CustomAction):
     COORDS = {}
     # 每个动作之间的默认间隔（秒）。可由 custom_action_param 前缀 "@0.3;" 覆盖，未设置时用此值。
     INTERVAL = 0.1
-    # 断点续做进度缓存（会话内有效）：{节点名: {'order': 动作列表, 'done': 已完成条数}}
+    # 断点续做进度：**只在当前这次任务运行内有效，而且只在内存里**（不生成任何文件）
+    # {节点名: {'v':2,'sig':批次签名,'order':动作列表,'done':已完成数,…}}
     _PROGRESS = {}
+    # 当前任务的标识（task_id + 入口名）。一变就说明「重新开了任务」→ 上一轮进度全部作废。
+    _TASK_KEY = None
+
 
     @classmethod
     def load_coords(cls, filepath: str):
@@ -308,16 +334,21 @@ class BatchSwipe(CustomAction):
                     return None
                 actions.append({'type': 'roi', 'roi': boxes})
             elif act_type == 'every':
-                # 识别间隔：every:N 表示每 N 个动作识别一次（不参与执行，默认 1）
-                if len(args) < 1:
-                    print(f"[BatchSwipe] every 需要整数: {cmd}")
+                # 识别间隔：every:N 表示每 N 个动作识别一次；every:block 表示每个顺序块结束后识别一次
+                # （两者可以同时写：every:3;every:block = 两处识别点都生效）
+                tok = args[0].strip().lower() if args else ''
+                if tok in ('block', 'blocks'):
+                    actions.append({'type': 'every', 'mode': 'block', 'n': 1})
+                    continue
+                if not tok:
+                    print(f"[BatchSwipe] every 需要整数或 block: {cmd}")
                     return None
                 try:
-                    n = int(args[0].strip())
+                    n = int(tok)
                 except ValueError:
-                    print(f"[BatchSwipe] every 参数不是整数: {cmd}")
+                    print(f"[BatchSwipe] every 参数不是整数（也不是 block）: {cmd}")
                     return None
-                actions.append({'type': 'every', 'n': n})
+                actions.append({'type': 'every', 'mode': 'every', 'n': n})
             elif act_type == 'fixed':
                 # fixed:N:动作     —— 每执行 N 个普通动作就额外执行一次该固定动作
                 # fixed:block:动作 —— 每个顺序块结束后执行一次该固定动作
@@ -343,7 +374,11 @@ class BatchSwipe(CustomAction):
                     return None
                 actions.append({'type': 'fixed', 'mode': mode, 'every': n, 'action': sub[0]})
             elif act_type == 'resume':
-                # 断点续做：记录本批次洗牌后的顺序与已完成条数，下次按同一顺序跳过已做、继续做
+                # 断点续做：进度只在当前这次任务（next 链）内、只在内存里；重新开任务会自动作废。
+                mode = args[0].strip().lower() if args and args[0].strip() else ''
+                if mode in ('disk', 'file', 'save', 'json'):
+                    print("[BatchSwipe] ℹ️ resume:disk 已取消（不再生成任何文件）：断点续做只在当前任务内有效，"
+                          "重新开启任务会自动从第 1 个动作开始")
                 actions.append({'type': 'resume'})
             elif act_type == 'reset':
                 # 清除该节点的断点进度
@@ -741,18 +776,29 @@ class BatchSwipe(CustomAction):
         return missing
 
     def _collect_every(self, actions):
-        """提取 every:N 识别间隔（每 N 个动作识别一次），未设置则默认 1（每动作都识别）。"""
-        for act in actions:
-            if not isinstance(act, dict):
-                continue
-            if str(act.get('type', '')).lower() != 'every':
+        """提取识别间隔，返回 (每N个动作, 是否每个顺序块结束后也识别)。
+
+        every:N     → (N, False)：每 N 个动作识别一次
+        every:block → (0, True) ：只在每个顺序块结束后识别
+        两个都写     → (N, True) ：两处识别点都生效（并集）
+        完全没写     → (1, False)：默认每个动作后都识别（保持老行为）
+        """
+        toks = [a for a in actions
+                if isinstance(a, dict) and str(a.get('type', '')).lower() == 'every']
+        if not toks:
+            return 1, False
+        n, block = 0, False
+        for act in toks:
+            if str(act.get('mode', 'every')).lower() in ('block', 'blocks'):
+                block = True
                 continue
             try:
-                n = int(act.get('n'))
+                v = int(act.get('n'))
             except Exception:
                 continue
-            return n if n > 0 else 1
-        return 1
+            if v > 0:
+                n = v
+        return (n if n > 0 else 0), block
 
     # 会真的发到设备上的动作类型（其余 token 是识别/节奏/固定动作之类的配置）
     EXEC_TYPES = ('swipe', 'click', 'sleep', 'multi')
@@ -784,6 +830,132 @@ class BatchSwipe(CustomAction):
             if nxt != 'exec':
                 a['_block_end'] = True
         return acts
+
+    @classmethod
+    def _annotate_segments(cls, acts, state, ordered):
+        """给「一段动作」标注位置：段号 / 段内序号（顺序段还标「第几个顺序块 / 块内第几个动作」）。
+
+        为什么要在解析时就打好：
+          · 断点续做要把进度定位到「第几个顺序块的第几个动作」，不能等执行时靠数数去猜；
+          · 块级识别（every:block）要知道哪一步是顺序块的末步（_block_end，由 _mark_block_ends 打）；
+          · 随机块 / 异步组里的动作也会被执行、也会被断点跳过，所以同样要能说清「第几段第几个」。
+        state = {'seg': 已出现的段数, 'blk': 已出现的顺序块数}，原地更新；返回这段里的可执行动作。
+        """
+        ex = [a for a in acts
+              if isinstance(a, dict) and str(a.get('type', '')).lower() in cls.EXEC_TYPES]
+        if not ex:
+            return ex
+        state['seg'] += 1
+        if ordered:
+            state['blk'] += 1
+        for i, a in enumerate(ex, 1):
+            a['_seg'] = state['seg']
+            a['_sidx'] = i
+            if ordered:
+                a['_blk'] = state['blk']
+                a['_bidx'] = i
+        return ex
+
+    @staticmethod
+    def _pos_name(act, idx):
+        """把一个动作说成「第几个顺序块的第几个动作（全程第几个）」，断点日志一眼就能对上。"""
+        if isinstance(act, dict):
+            blk, bidx = act.get('_blk'), act.get('_bidx')
+            if blk and bidx:
+                return f"第 {blk} 个顺序块的第 {bidx} 个动作（全程第 {idx + 1} 个）"
+            seg, sidx = act.get('_seg'), act.get('_sidx')
+            if seg and sidx:
+                return f"第 {seg} 段（随机/异步块）的第 {sidx} 个动作（全程第 {idx + 1} 个）"
+        return f"第 {idx + 1} 个动作"
+
+    # ---------------- 断点续做进度：**只在当前这次任务运行内有效，而且只在内存里** ----------------
+
+    @staticmethod
+    def _task_key(argv):
+        """「这次任务运行」的标识：MAA 每次「开始任务 / 重新开启任务」都会 post 一个新任务，
+        新的 task_id 就代表新的一轮 —— 断点续做只在同一轮任务（同一条 next 链）里算数。
+
+        拿不到 task_detail / task_id（很老的 MaaFw）时退回用「入口节点名」做标识，
+        至少能保证「换了个任务就不会串用上一个任务的断点」。
+        """
+        td = getattr(argv, 'task_detail', None)
+        tid = getattr(td, 'task_id', None)
+        entry = getattr(td, 'entry', '') or ''
+        if tid is None:
+            return ('entry', str(entry))
+        return ('task', str(tid), str(entry))
+
+    @classmethod
+    def _describe_task(cls, key):
+        if isinstance(key, tuple) and key and key[0] == 'task':
+            return f"task_id={key[1]}，入口「{key[2]}」"
+        if isinstance(key, tuple) and len(key) > 1:
+            return f"入口「{key[1]}」（这台设备/MaaFw 拿不到 task_id）"
+        return str(key)
+
+    @classmethod
+    def _begin_task(cls, argv):
+        """进节点时先对齐「当前任务」：只要换了任务，上一轮留下的断点全部作废。
+
+        这就是「重新开启了任务就不续做」：重新开任务 = 新 task_id → 进度清空 → 本节点从第 1 个动作开始。
+        """
+        key = cls._task_key(argv)
+        if key != cls._TASK_KEY:
+            if cls._PROGRESS:
+                names = "、".join(sorted(cls._PROGRESS.keys())[:3])
+                more = "…" if len(cls._PROGRESS) > 3 else ""
+                print(f"[BatchSwipe] ⏯ 检测到新的任务运行（{cls._describe_task(key)}）→ "
+                      f"上一轮留下的断点进度全部作废（{names}{more}），本次从第 1 个动作开始")
+            cls._PROGRESS = {}
+            cls._TASK_KEY = key
+        return key
+
+    @classmethod
+    def _store_progress(cls, node, sig, actions, cursor, param=''):
+        """记录/刷新某节点的进度。cursor = 还没做完的那个动作的下标（下次从这个动作重做）。"""
+        cur = actions[cursor] if 0 <= cursor < len(actions) else None
+        cls._PROGRESS[node] = {
+            'v': 2,
+            'sig': sig,
+            'order': list(actions),      # 上次洗牌后的执行顺序（含 _blk/_bidx 等位置标记）
+            'done': int(cursor),
+            'block': cur.get('_blk') if isinstance(cur, dict) else None,
+            'step': cur.get('_bidx') if isinstance(cur, dict) else None,
+            'pos': cls._pos_name(cur, cursor) if cur is not None else '全部完成',
+            'total': len(actions),
+            'param': (param or '')[:500],
+        }
+
+    @classmethod
+    def _set_cursor(cls, node, cursor):
+        """把进度挪到第 cursor 个动作（0 起算）。"""
+        rec = cls._PROGRESS.get(node)
+        if not isinstance(rec, dict):
+            return
+        if rec.get('done') == cursor:
+            return
+        rec['done'] = int(cursor)
+        order = rec.get('order') or []
+        cur = order[cursor] if 0 <= cursor < len(order) else None
+        rec['block'] = cur.get('_blk') if isinstance(cur, dict) else None
+        rec['step'] = cur.get('_bidx') if isinstance(cur, dict) else None
+        rec['pos'] = cls._pos_name(cur, cursor) if cur is not None else '全部完成'
+
+    @classmethod
+    def _drop_progress(cls, node, quiet=False):
+        """清除某节点的断点进度（只在内存里，没有文件要清）。"""
+        had = cls._PROGRESS.pop(node, None) is not None
+        if not quiet:
+            if had:
+                print(f"[BatchSwipe] ⏯ 已清除节点「{node}」的断点进度")
+            else:
+                print(f"[BatchSwipe] ⏯ 节点「{node}」本来就没有断点进度")
+        return had
+
+    @staticmethod
+    def _batch_sig(param_str: str):
+        """批次签名：整段参数（去掉空白）。参数一改，签名就变 → 断点进度作废、从头来（避免错位）。"""
+        return re.sub(r'\s+', '', param_str or '')
 
     @staticmethod
     def _collect_fixed(actions):
@@ -830,7 +1002,9 @@ class BatchSwipe(CustomAction):
 
     @staticmethod
     def _collect_resume(actions):
-        return any(isinstance(a, dict) and str(a.get('type', '')).lower() == 'resume' for a in actions)
+        """断点续做开关（进度只在当前任务内 + 只在内存里，不生成任何文件）。"""
+        return any(isinstance(a, dict) and str(a.get('type', '')).lower() == 'resume'
+                   for a in actions)
 
     @staticmethod
     def _collect_reset(actions):
@@ -1156,6 +1330,9 @@ class BatchSwipe(CustomAction):
                 print("[BatchSwipe] 参数为空")
                 return False
 
+        # 断点续做的「批次签名」：用原始参数（含 random: 前缀、含块结构）算，参数一改进度就作废。
+        resume_sig = self._batch_sig(param_str)
+
         controller = self._get_controller(context)
         if controller is None:
             print("[BatchSwipe] 无法获取控制器")
@@ -1168,12 +1345,15 @@ class BatchSwipe(CustomAction):
                 return False
 
             final_actions = []
+            # 位置标记：段号 / 顺序块号（断点续做定位到「第几个顺序块的第几个动作」靠它）
+            seg_state = {'seg': 0, 'blk': 0}
             for block_type, block_content in blocks:
                 if block_type == 'ordered':
                     acts = self._parse_actions(block_content)
                     if acts is None:
                         return False
-                    self._mark_block_ends(acts)      # ★ 顺序块：段末打点（fixed:block 用）
+                    self._mark_block_ends(acts)      # ★ 顺序块：段末打点（fixed:block / every:block 用）
+                    self._annotate_segments(acts, seg_state, ordered=True)   # ★ 顺序块：标块号/块内序号
                     final_actions.extend(acts)
                 elif block_type == 'async':
                     # 异步组：{!@间隔;动作;动作;…}
@@ -1190,11 +1370,14 @@ class BatchSwipe(CustomAction):
                     elements = self._parse_random_block(body) if body else []
                     if elements is None:
                         return False
+                    group_acts = []
                     for a in self._expand_shuffled(elements):
                         if isinstance(a, dict) and str(a.get('type', '')).lower() in ('swipe', 'click'):
                             a['_async'] = True          # 提交后不等待
                             a['_interval'] = group_interval
-                        final_actions.append(a)
+                        group_acts.append(a)
+                    self._annotate_segments(group_acts, seg_state, ordered=False)   # ★ 异步组：单独一段
+                    final_actions.extend(group_acts)
                 else:  # random
                     elements = self._parse_random_block(block_content)
                     if elements is None:
@@ -1202,10 +1385,13 @@ class BatchSwipe(CustomAction):
                     # 随机打乱元素（元素可能是动作、组合、或嵌套随机块）；带权重则加权（权重越大越可能在前）
                     self._weighted_shuffle(elements)
                     # 展开元素（递归处理嵌套随机块）
-                    final_actions.extend(self._expand_shuffled(elements))
+                    random_acts = self._expand_shuffled(elements)
+                    self._annotate_segments(random_acts, seg_state, ordered=False)  # ★ 随机块：单独一段
+                    final_actions.extend(random_acts)
             actions = final_actions
         else:
             # 没有大括号：处理 random: 前缀或普通解析
+            seg_state = {'seg': 0, 'blk': 0}
             if param_str.startswith('random:'):
                 param_str = param_str[7:].strip()
                 if '|' in param_str:
@@ -1224,19 +1410,22 @@ class BatchSwipe(CustomAction):
                 if ordered_actions is None:
                     return False
                 self._mark_block_ends(ordered_actions)     # ★ 顺序部分：段末打点
+                self._annotate_segments(random_actions, seg_state, ordered=False)
+                self._annotate_segments(ordered_actions, seg_state, ordered=True)
                 actions = random_actions + ordered_actions
             else:
                 actions = self._parse_actions(param_str)
                 if actions is None:
                     return False
                 self._mark_block_ends(actions)             # ★ 整段就是一个顺序块
+                self._annotate_segments(actions, seg_state, ordered=True)
 
         # 提取识别触发(watch/ref)、全局 roi、识别间隔、固定动作（若有），并从执行列表中剔除（它们不实际顺序执行）
         resume = self._collect_resume(actions)
         do_reset = self._collect_reset(actions)
         watch_triggers = self._collect_watch(actions)
         watch_rois = self._collect_roi(actions)
-        watch_every = self._collect_every(actions)
+        watch_every, watch_block_end = self._collect_every(actions)
         fixed_act = self._collect_fixed(actions)
         attach_actions, attach_every, attach_mode, attach_start = self._collect_attach(actions)
         # ★ 附属块的核心语义：它像顺序块一样「摆在序列里的某个位置」，
@@ -1251,7 +1440,7 @@ class BatchSwipe(CustomAction):
                 _t = str(_a.get('type', '')).lower()
                 if _t == 'attach':
                     break
-                if _t in ('swipe', 'click', 'sleep'):
+                if _t in self.EXEC_TYPES:
                     _seen += 1
             attach_start = (_seen + 1) if _seen > 0 else 1
         actions = [
@@ -1275,19 +1464,39 @@ class BatchSwipe(CustomAction):
             print("[BatchSwipe] 请确认：已加载坐标表（load_coords）；参数里的键名与坐标表中的键名完全一致。")
             return False
 
-        # 断点续做：记录/恢复本批次的执行顺序与已完成条数（进度存缓存，会话内有效）
+        # ---------------- 断点续做（动作级 · 顺序块级 · 只在当前任务内） ----------------
+        # 语义：进度记的是「**还没做完的那一个动作**」——
+        #   断在第 N 个顺序块的第 K 个动作，下次回来就从那个动作重做，不跳步也不倒退。
+        # 范围：**只在当前这次任务运行（当前这条 next 链）里算数**；重新开启任务 = 新 task_id
+        #   → 上一轮进度全部作废、从第 1 个动作开始（进度只在内存里，不生成任何文件）。
+        self._begin_task(argv)
         start_index = 0
         if do_reset:
-            self._PROGRESS.pop(argv.node_name, None)
+            self._drop_progress(argv.node_name)
         if resume:
             cached = self._PROGRESS.get(argv.node_name)
-            if cached and self._same_exec_set(cached.get('order', []), actions):
-                # 同一批量配置：沿用上次的顺序（避免随机块重新洗牌），跳过已做部分
-                actions = list(cached['order'])
-                start_index = min(cached.get('done', 0), len(actions))
+            order = cached.get('order') if isinstance(cached, dict) else None
+            same = (isinstance(order, list) and len(order) == len(actions)
+                    and str(cached.get('sig', '')) == resume_sig)
+            if same:
+                # 同一批次（参数没变）：沿用上次洗牌后的顺序，避免重排打乱进度
+                actions = list(order)
+                try:
+                    start_index = int(cached.get('done', 0) or 0)
+                except (TypeError, ValueError):
+                    start_index = 0
+                start_index = max(0, min(start_index, len(actions)))
+                if start_index < len(actions):
+                    nxt = self._pos_name(actions[start_index], start_index)
+                    print(f"[BatchSwipe] ⏯ 断点续做：上次断在 {cached.get('pos') or '?'}，"
+                          f"本次从 {nxt} 继续（已完成 {start_index}/{len(actions)}）")
+                else:
+                    print(f"[BatchSwipe] ⏯ 断点续做：上一批已经全部做完（{len(actions)} 个），本次无事可做，清除进度")
             else:
+                if cached:
+                    print("[BatchSwipe] ⏯ 断点续做：本节点参数已改动（批次签名不一致），本批从头开始")
                 start_index = 0
-            self._PROGRESS[argv.node_name] = {'order': list(actions), 'done': start_index}
+            self._store_progress(argv.node_name, resume_sig, actions, start_index, param_str)
 
         # 执行所有动作
         executed = start_index
@@ -1308,7 +1517,7 @@ class BatchSwipe(CustomAction):
                     print(f"[BatchSwipe] ⚠️ 异步动作等待失败: {e}")
 
         def _submit_or_run(act, pos):
-            """异步动作 -> 只提交不等待；多指动作 -> 走 MultiSwipe；同步动作 -> 先排空再等它完成。"""
+            """异步动作 -> 只提交不等待；多指动作 -> 走原生 MultiSwipe；同步动作 -> 先排空再等它完成。"""
             t = str(act.get('type', '')).lower()
             if t == 'multi':
                 _drain()
@@ -1339,12 +1548,23 @@ class BatchSwipe(CustomAction):
             where = f"从第 {attach_start} 个主块动作开始，" if attach_start > 1 else ""
             print(f"[BatchSwipe] 🔗 附属顺序块 {len(attach_queue)} 个动作 · 模式={attach_mode} · "
                   f"{where}每 {attach_every} 个主块动作配 1 个（不占用主块计数/识别点）")
+            # 断点续做时：被跳过的那些主块动作本该消耗掉的附属动作要先扣掉，
+            # 否则续做之后「主块动作 ↔ 附属动作」的配对会整体错位。
+            if start_index > 0 and attach_every > 0:
+                for _j in range(start_index):
+                    rel0 = _j - (attach_start - 1)
+                    if rel0 >= 0 and rel0 % attach_every == 0 and attach_queue:
+                        attach_queue.pop(0)
 
         for idx, act in enumerate(actions):
             if idx < start_index:
                 # 已做过的动作：跳过
                 continue
             pos = f"执行到第 {idx+1}/{len(actions)} 个动作"
+            if resume:
+                # 先把进度挪到「正在做的这个动作」：万一这次被判死/崩溃（来不及写完成），
+                # 下次也是从这个动作重做，而不是悄悄跳过它
+                self._set_cursor(argv.node_name, idx)
 
             # 该主块动作是否顺带带上一个附属动作（起始位置由 attach_start 决定，节奏由 attach_every 决定）
             partner = None
@@ -1377,20 +1597,32 @@ class BatchSwipe(CustomAction):
 
             executed = idx + 1
             if resume:
-                self._PROGRESS[argv.node_name]['done'] = executed
-            # 每 N 个动作识别一次（every:N，默认 1）。命中即停止剩余动作，跟随当前节点 next 列表执行
+                # 这个动作做完了 → 进度往后挪一格
+                self._set_cursor(argv.node_name, executed)
+            # 识别点（命中即停止剩余动作，跟随当前节点 next 列表执行）：
+            #   ① every:N  → 每 N 个动作识别一次（默认 1 = 每个动作后都识别）
+            #   ② every:block → 每个顺序块结束后识别一次（块末 = 顺序块最后一个动作，固定动作之前）
             # 识别前必须排空，否则截图会截到 swipe 的中间帧
-            watch_due = bool(watch_triggers) and (executed % watch_every == 0)
+            at_block_end = bool(act.get('_block_end'))
+            watch_due = bool(watch_triggers) and (
+                (watch_every > 0 and executed % watch_every == 0)
+                or (watch_block_end and at_block_end)
+            )
             if watch_due:
                 _drain()
                 if self._watch_check(context, controller, watch_triggers, watch_rois):
-                    print(f"[BatchSwipe] 🔍 执行第 {executed}/{total} 个动作后识别到命中内容，停止剩余动作，跟随当前节点 next 列表执行")
+                    if resume:
+                        # 断在「这个动作」上 → 下次回来仍然从这个动作续（它很可能没被游戏结算完）
+                        self._set_cursor(argv.node_name, idx)
+                    reason = "本顺序块结束" if (watch_block_end and at_block_end) else f"第 {executed}/{total} 个动作"
+                    print(f"[BatchSwipe] 🔍 {reason}后识别到命中内容（断点停在 {self._pos_name(act, idx)}），"
+                          f"停止剩余动作，跟随当前节点 next 列表执行")
                     return True
             # 固定动作：每 fixed_every 个普通动作后额外执行一次（不占 N 的计数；识别命中会先中断，不补执行 fixed）
             #           或 block 模式：每个顺序块结束后额外执行一次（_block_end 在解析时打好）
             if fixed_act:
                 if fixed_mode == 'block':
-                    fire_fixed = bool(act.get('_block_end'))
+                    fire_fixed = at_block_end
                     why = '本顺序块结束'
                 else:
                     fire_fixed = fixed_every > 0 and executed % fixed_every == 0
@@ -1399,10 +1631,13 @@ class BatchSwipe(CustomAction):
                     # ★ 固定动作也要先看识别：every:N>1 时识别点不一定落在这个动作上，
                     #   不然「屏幕早就该跳 next 了」却还在这里多做一个固定动作（会把主块节奏打乱）。
                     #   命中 → 不执行固定动作，直接停（跟随 next）。
+                    #   （every:block 的识别点正好在这里，watch_due 已认过就不重复截图）
                     if watch_triggers and not watch_due:
                         _drain()
                         if self._watch_check(context, controller, watch_triggers, watch_rois):
-                            print(f"[BatchSwipe] 🔍 固定动作前识别到命中内容（第 {executed}/{total} 个动作后），"
+                            if resume:
+                                self._set_cursor(argv.node_name, idx)
+                            print(f"[BatchSwipe] 🔍 固定动作前识别到命中内容（断点停在 {self._pos_name(act, idx)}），"
                                   f"跳过本次固定动作并停止剩余动作，跟随当前节点 next 列表执行")
                             return True
                     print(f"[BatchSwipe] 🔁 执行第 {executed}/{total} 个动作后，执行固定动作（{why}）")
@@ -1427,5 +1662,5 @@ class BatchSwipe(CustomAction):
         if attach_used:
             print(f"[BatchSwipe] 🔗 附属顺序块共执行 {attach_used} 个动作")
         if resume and executed >= total:
-            self._PROGRESS.pop(argv.node_name, None)
+            self._drop_progress(argv.node_name, quiet=True)
         return True
