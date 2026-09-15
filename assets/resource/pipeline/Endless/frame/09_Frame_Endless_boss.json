@@ -12,7 +12,7 @@
             69
         ],
         "threshold": [
-            0.6
+            0.8
         ],
         "green_mask": true,
         "focus": "boss关",
