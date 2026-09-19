@@ -489,6 +489,23 @@
         "any_of": [
             {
                 "recognition": "OCR",
+                "expected": [
+                    "×",
+                    "x",
+                    "X",
+                    "✕",
+                    "✖"
+                ],
+                "threshold": 0.5,
+                "roi": [
+                    897,
+                    214,
+                    19,
+                    17
+                ]
+            },
+            {
+                "recognition": "OCR",
                 "roi": [
                     771,
                     246,
