@@ -329,17 +329,18 @@
     },
     "埃及8_加速": {
         "recognition": "TemplateMatch",
-        "template": [
-            "get_gold_coins/关卡内_加速.png"
+        "template": "General/加速.png",
+        "roi": [
+            1146,
+            9,
+            56,
+            59
         ],
         "action": "Click",
-        "roi": [
-            1138,
-            5,
-            75,
-            68
+        "target": [
+            1167,
+            37
         ],
-        "post_wait_freezes": 300,
         "next": [
             "埃及8_胜利",
             "埃及8_下一波"
