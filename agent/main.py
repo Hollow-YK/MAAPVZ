@@ -22,7 +22,7 @@ import my_reco
 import ExpressionRecognition
 import ocr_return_action
 import actions
-import agent_icon_recognition
+# import agent_icon_recognition
 
 SingleAction.load_coords('./assets/resource/coords.json')
 BatchSwipe.load_coords('./assets/resource/coords.json')
