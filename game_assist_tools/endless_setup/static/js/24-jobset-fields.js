@@ -1,0 +1,159 @@
+
+// ============================================================
+// 普通关 / boss 关 的配置字段映射
+//
+// ★ 需求：boss 关的组合动作配置（链条顺序、动作后等待、槽位形态）
+//   必须与普通关**完全独立** —— 除了槽位植物（slots/lineup）共用。
+//
+//   普通关（boardEarly）用：slotOrder / loopOrder / endOrder / waitAfter / slotModes
+//   boss 关（boardLate） 用：bossSlotOrder / bossLoopOrder / bossEndOrder /
+//                            bossWaitAfter / bossSlotModes
+//
+//   旧数据没有 boss* 字段 —— 按用户要求**不自动拷贝**，boss 关直接等结算
+//   （即 boss 链为空 -> 只跑「继续挑战」识别，不做任何种植）。
+//
+//   ★ 三条链：
+//     once（单次链）—— 开局先执行一遍
+//     loop（循环链）—— 之后反复执行
+//     end （收尾链）—— 检测到最后一波时执行一次，然后等结算
+// ============================================================
+const JOB_FIELD_MAP = {
+    once: { normal: 'slotOrder', boss: 'bossSlotOrder' },
+    loop: { normal: 'loopOrder', boss: 'bossLoopOrder' },
+    end:  { normal: 'endOrder',  boss: 'bossEndOrder' },
+    wait: { normal: 'waitAfter', boss: 'bossWaitAfter' },
+    modes: { normal: 'slotModes', boss: 'bossSlotModes' }
+};
+
+// 三条链的显示名与图标
+const JOB_CHAIN_META = {
+    once: { label: '单次链（先执行一遍）',      short: '单次链', icon: '1️⃣' },
+    loop: { label: '循环链（反复执行）',        short: '循环链', icon: '🔁' },
+    end:  { label: '收尾链（最后一波执行一次）', short: '收尾链', icon: '🚩' }
+};
+
+// 槽位形态：once（单次）/ loop（循环）/ end（收尾）
+const JOB_SLOT_MODES = ['once', 'loop', 'end'];
+
+// 当前编辑的是不是 boss 棋盘（'late' tab = boss）
+function jobIsBossBoard() {
+    try {
+        return (document.querySelector('.tab.active')?.dataset.tab === 'late');
+    } catch (e) { return false; }
+}
+
+// 取某条链在指定 board 上对应的字段名
+function jobChainField(which, board) {
+    const isBoss = (board === boardLate) || (board === undefined && jobIsBossBoard());
+    return isBoss ? JOB_FIELD_MAP[which].boss : JOB_FIELD_MAP[which].normal;
+}
+
+// 「动作后等待」的字段名（跟当前编辑的 tab 走）
+function jobWaitField() {
+    return jobIsBossBoard() ? JOB_FIELD_MAP.wait.boss : JOB_FIELD_MAP.wait.normal;
+}
+
+// 「槽位形态」的字段名（跟当前编辑的 tab 走）
+function jobModesField() {
+    return jobIsBossBoard() ? JOB_FIELD_MAP.modes.boss : JOB_FIELD_MAP.modes.normal;
+}
+
+// 该槽在这一段里包含哪些落点。每项带 gidx = 它在「本槽全部落点」里的真实下标。
+// picked 存在时用它（融合/拆出的块可能是若干不连续的株），否则用 [from, to) 区间。
+//
+// ★ 段内顺序（seg.order）：
+//   默认按棋盘上的 seq（= 格子1_1 → 1_2 → 1_3 …）。
+//   作者可以在链条里拖动 chip 打乱块内顺序，此时 seg.order 记录「落点下标」的
+//   自定义先后（如 [2,0,1]）。order 的长度与 picked/区间展开的落点一致；
+//   对不上的部分（增删落点后）按 seq 追加到末尾，保证不丢落点。
+function jobSegPlacements(board, seg, which) {
+    const all = jobPlacementsOf(board, seg.key, which);
+    let idxs;
+    if (Array.isArray(seg.picked) && seg.picked.length) {
+        idxs = seg.picked.slice();
+    } else if (seg.from === 0 && (seg.to === null || seg.to === undefined)) {
+        idxs = all.map(function (_, i) { return i; });
+    } else {
+        const to = (seg.to === null || seg.to === undefined) ? all.length : seg.to;
+        idxs = [];
+        for (let g = (seg.from | 0); g < to; g++) idxs.push(g);
+    }
+
+    // ★ 应用自定义块内顺序
+    if (Array.isArray(seg.order) && seg.order.length) {
+        const want = seg.order.map(Number).filter(function (g) {
+            return idxs.indexOf(g) !== -1;
+        });
+        const rest = idxs.filter(function (g) { return want.indexOf(g) === -1; });
+        idxs = want.concat(rest);      // 自定义在前，新增的落点按 seq 追加
+    }
+
+    return idxs.map(function (g) {
+        const e = all[g];
+        if (!e) return null;
+        // 把真实下标挂在返回项上：调用方不必再靠 seg.from + i 去猜（融合后下标不连续）
+        return { r: e.r, c: e.c, item: e.item, gidx: g };
+    }).filter(Boolean);
+}
+
+// 某槽在链里分成了几段（用于判断是否已被拆开）
+function jobSegCountFor(t, which, key) {
+    return jobGetChainOrder(t, which).filter(function (s) { return s.key === key; }).length;
+}
+
+// 兼容旧调用
+function jobGetSlotOrder(t) { return jobGetChainOrder(t, 'once'); }
+
+// 某槽在指定形态下的落点（按 seq 排序）—— 单次与循环各自独立
+function jobPlacementsOf(board, scopeId, selMode) {
+    const out = [];
+    if (!board) return out;
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            (board[r][c] || []).forEach(function (it) {
+                if (it.id !== scopeId) return;
+                if (jobItemMode(it) !== selMode) return;
+                out.push({ r: r, c: c, item: it });
+            });
+        }
+    }
+    out.sort(function (a, b) {
+        const qa = (typeof a.item.seq === 'number') ? a.item.seq : 9999;
+        const qb = (typeof b.item.seq === 'number') ? b.item.seq : 9999;
+        if (qa !== qb) return qa - qb;
+        // seq 相同/缺失时用全局落子序号兜底，保证顺序稳定
+        const oa = (typeof a.item.ord === 'number') ? a.item.ord : 999999;
+        const ob = (typeof b.item.ord === 'number') ? b.item.ord : 999999;
+        return oa - ob;
+    });
+    return out;
+}
+
+// 某落点的稳定键（用于挂「动作后等待」）
+function jobPlacementKey(mode, scopeId, r, c, seq) {
+    return mode + '|' + scopeId + '|' + r + ',' + c + '|' + (seq || 0);
+}
+
+// 计算某条链的「全局种植序号」：按链条里段的先后、段内落点的先后，
+// 给每个落点一个从 1 开始的**连续**序号（跨槽 / 跨块永不重号）。
+// 这样顺序链里的编号是一整段 1..N，而不是每个块各自 1..N，
+// 同时棋盘格子上同形态的角标也用它，保证链与棋盘一一对应。
+// 返回 Map：键 = jobPlacementKey(which, key, r, c, seq) → 全局序号（1 起）。
+function jobBuildGlobalSeq(board, t, which) {
+    const map = new Map();
+    if (!board || !t) return map;
+    const seen = {};
+    let idx = 0;
+    const segs = jobGetChainOrder(t, which, board);
+    segs.forEach(function (seg) {
+        jobSegPlacements(board, seg, which).forEach(function (p) {
+            if (!p || !p.item) return;
+            const k = jobPlacementKey(which, seg.key, p.r, p.c, p.item.seq);
+            if (seen[k]) return;      // 数据异常导致段重叠时，去重避免重号
+            seen[k] = true;
+            idx++;
+            map.set(k, idx);
+        });
+    });
+    return map;
+}
