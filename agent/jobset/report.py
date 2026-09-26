@@ -44,6 +44,7 @@ def main():
             print(f"  wave(点波)={rules['wave']}  loop={rules['loop']}  once={rules['once']}")
             print(f"  数据源: once_chain={len(rules['once_chain'])}段 "
                   f"loop_chain={len(rules['loop_chain'])}段 "
+                  f"end_chain={len(rules['end_chain'])}段 "
                   f"sequence={len(rules['sequence'])}步")
 
             r = dsl.rules_dsl(rules, t.slots, coords)

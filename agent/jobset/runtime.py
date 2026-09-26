@@ -458,7 +458,7 @@ class JobSetReset(CustomAction):
 
 # 组合动作节点名模板（03_Endless_fight/）
 FIGHT_NODE_TPL = "无尽挑战_{slot}组合动作_{kind}"
-KIND_CN = {"once": "单次", "loop": "循环"}
+KIND_CN = {"once": "单次", "loop": "循环", "end": "收尾"}
 
 # 槽位 key -> 节点里的中文序数
 _SLOT_NODE_NAME = {
@@ -607,7 +607,8 @@ class JobSetFight(CustomAction):
         _log(
             f"关卡{lv} {kind_cn} -> 表{table.index + 1} "
             f"| once_chain={len(rules['once_chain'])}段 "
-            f"loop_chain={len(rules['loop_chain'])}段"
+            f"loop_chain={len(rules['loop_chain'])}段 "
+            f"end_chain={len(rules['end_chain'])}段"
         )
 
         # ★ boss 关未配置（作业集里没有 bossSlotOrder/bossLoopOrder）时：
@@ -640,6 +641,7 @@ class JobSetFight(CustomAction):
                         "post_delay": 0,
                         "next": ["无尽局内_继续挑战"],
                     },
+                    "无尽挑战_收尾": {"enabled": False},
                 })
                 return _ok()
 
@@ -660,16 +662,42 @@ class JobSetFight(CustomAction):
         # 各链的节点序列（按链里段的先后）
         once_seq = seg_nodes.get("once", [])
         loop_seq = seg_nodes.get("loop", [])
+        end_seq = seg_nodes.get("end", [])
         once_order = [s["key"] for s in once_seq]
         loop_order = [s["key"] for s in loop_seq]
+
+        # ★ boss 关不能有收尾：boss 关一律不跑收尾链（用户要求）。
+        #   收尾只对普通关生效，所以 boss 关把 end_seq 清空。
+        if is_boss:
+            end_seq = []
+        has_end = bool(end_seq)
+
+        # ★ 收尾链的可调参数（网页端「棋盘下侧」编辑，作业集导出）：
+        #   · 「收尾前等待」 = 「无尽挑战_收尾」检测节点的 post_delay（默认 15000ms）
+        #   · 「收尾超时时间」 = 收尾链最后一个动作节点的 post_delay（默认 6000ms）
+        #   · 「收尾超时后动作」 = sub（执行子动作）/ restart（重开）
+        #   · 「子动作」 = once（单次动作）/ loop（循环动作）/ end（收尾动作）
+        def _num(v: Any, default: int) -> int:
+            try:
+                return int(float(v))
+            except (TypeError, ValueError):
+                return default
+
+        end_post_delay = _num(table.raw.get("endPostDelay"), 15000)
+        end_last_post_delay = _num(table.raw.get("endLastPostDelay"), 6000)
+        end_after_action = str(table.raw.get("endAfterAction") or "sub").strip()
+        end_sub_action = str(table.raw.get("endSubAction") or "loop").strip()
+        if end_sub_action not in ("once", "loop", "end"):
+            end_sub_action = "loop"
 
         override: Dict[str, Any] = {}
 
         # ---- 1) 组合动作节点：每个链段一个节点 ----
         #
         # next 结构：
-        #     ["无尽局内_继续挑战",   <- 识别不到结算，说明这局还没结束
-        #      "链里的下一个段节点"]   <- 继续做链里的下一步
+        #     ["无尽局内_继续挑战",       <- 识别不到结算，说明这局还没结束
+        #      "无尽挑战_收尾",           <- 收到最后一波了吗？（仅当配了收尾链）
+        #      "链里的下一个段节点"]       <- 继续做链里的下一步
         #
         # 「继续挑战」放**第一个**：命中了就点它去结算流程；
         # 没命中就自然落到第二个，不需要 on_error、不等超时。
@@ -685,17 +713,60 @@ class JobSetFight(CustomAction):
                 else:
                     next_node = seq[0]["node"] if seq else "无尽局内_循环种植"
 
+                # 收尾触发器夹在「继续挑战」与「下一个段」之间：
+                # 结算没出现、但检测到最后一波 -> 跳去收尾链（不再循环种植）。
+                nxt = ["无尽局内_继续挑战"]
+                if has_end:
+                    nxt.append("无尽挑战_收尾")
+                nxt.append(next_node)
+
                 override[seg["node"]] = {
                     "action": "Custom",
                     "custom_action": "BatchSwipe",
                     "custom_action_param": seg["dsl"],
                     "pre_delay": 0,
                     "post_delay": 0,
-                    "next": [
-                        "无尽局内_继续挑战",
-                        next_node,
-                    ],
+                    "next": nxt,
                 }
+
+        # ---- 1b) 收尾链组合动作节点 ----
+        #
+        # 收尾链只在「无尽挑战_收尾」命中（最后一波）时执行一次，
+        # 所以中间节点不需要再夹「无尽挑战_收尾」触发器。
+        # next 结构（与 once/loop 一致）：
+        #     ["无尽局内_继续挑战", 下一个收尾段]
+        #
+        # 链尾（最后一个收尾动作）：
+        #     ["无尽局内_继续挑战", <收尾超时后动作>]
+        #   —— 先识别「继续挑战」（结算画面）点它过关；识别不到（收尾超时）时，
+        #      落到「收尾超时后动作」：
+        #       · sub  + once → 无尽局内_单次种植
+        #       · sub  + loop → 无尽局内_循环种植
+        #       · sub  + end  → 无尽挑战_收尾（再收尾一遍）
+        #       · restart    → 无尽挑战_收尾重开（重开当前关卡）
+        for i, seg in enumerate(end_seq):
+            is_last = (i + 1 == len(end_seq))
+            if is_last:
+                if end_after_action == "restart":
+                    nxt = ["无尽局内_继续挑战", "无尽挑战_收尾重开"]
+                elif end_sub_action == "once":
+                    nxt = ["无尽局内_继续挑战", "无尽局内_单次种植"]
+                elif end_sub_action == "end":
+                    nxt = ["无尽局内_继续挑战", "无尽挑战_收尾"]
+                else:
+                    nxt = ["无尽局内_继续挑战", "无尽局内_循环种植"]
+                post_delay = end_last_post_delay
+            else:
+                nxt = ["无尽局内_继续挑战", end_seq[i + 1]["node"]]
+                post_delay = 0
+            override[seg["node"]] = {
+                "action": "Custom",
+                "custom_action": "BatchSwipe",
+                "custom_action_param": seg["dsl"],
+                "pre_delay": 0,
+                "post_delay": post_delay,
+                "next": nxt,
+            }
 
         # ---- 2) 链首节点：单次链/循环链的入口 ----
         once_next = [s["node"] for s in once_seq] or ["无尽局内_循环种植"]
@@ -742,6 +813,44 @@ class JobSetFight(CustomAction):
             "next": ["无尽局内_补给", after_pick],
         }
 
+        # ---- 3b) 收尾检测节点：检测到最后一波 -> 执行收尾链 -> 等结算 ----
+        #
+        # 「无尽挑战_收尾」是 TemplateMatch 识别（僵尸头像出现在右上角 = 最后一波）。
+        #   · 配了收尾链（棋盘上有「收尾」形态的落子）-> enabled=True，next 指向收尾链第一段；
+        #   · 没配 -> enabled=False（保持 pipeline 里的空壳，不参与）。
+        # post_delay 由网页端「棋盘下侧」编辑（默认 15000ms）。
+        #
+        # override_pipeline 是深合并：这里只改 enabled / next / post_delay，
+        # 识别配置（recognition=TemplateMatch / template / roi / green_mask）
+        # 沿用 pipeline 里 03-1-01 写死的值。
+        if has_end:
+            override["无尽挑战_收尾"] = {
+                "enabled": True,
+                "post_delay": end_post_delay,
+                "next": [end_seq[0]["node"]],
+            }
+        else:
+            override["无尽挑战_收尾"] = {"enabled": False}
+
+        # ---- 3c) 收尾重开节点：收尾超时后动作 = 「重开」时注入 ----
+        #
+        # 当一个 Custom 节点承载「重开当前关卡」的动作（不增加计数器）：
+        #   调用「通用_重开_暂停」重开 -> 跳回「无尽挑战_选取植物_开始战斗」直接开局。
+        # 只在作业集选择「重开」且配了收尾链时才启用。
+        # ⚠️ 壳节点在 pipeline 里 enabled=false，这里必须显式置 true 才会执行。
+        if has_end and end_after_action == "restart":
+            override["无尽挑战_收尾重开"] = {
+                "action": "Custom",
+                "custom_action": "JobSetEndRestart",
+                "custom_action_param": {},
+                "enabled": True,
+                "pre_delay": 0,
+                "post_delay": 0,
+                "next": [],
+            }
+        else:
+            override["无尽挑战_收尾重开"] = {"enabled": False}
+
         # ---- 4) 自检：注入的 next 目标是否都存在 ----
         #
         # 踩过的坑：曾把「无尽局内_继续挑战」的 next 指向一个已被注释掉的节点，
@@ -753,8 +862,8 @@ class JobSetFight(CustomAction):
             context.override_pipeline(override)
             _log(f"已注入 {len(override)} 个节点")
             # 打印每段的节点名与动作数（段序 = 执行顺序）
-            for kind, seq in (("once", once_seq), ("loop", loop_seq)):
-                cn = "单次" if kind == "once" else "循环"
+            for kind, seq in (("once", once_seq), ("loop", loop_seq), ("end", end_seq)):
+                cn = {"once": "单次", "loop": "循环", "end": "收尾"}[kind]
                 if not seq:
                     _log(f"  [{cn}链] （空）")
                     continue
@@ -891,7 +1000,8 @@ class JobSetFight(CustomAction):
     ) -> Dict[str, List[Dict[str, Any]]]:
         """链里**每一段**生成一个独立节点。
 
-        返回 {"once": [{"node": 节点名, "key": 槽位key, "dsl": "..."}], "loop": [...]}
+        返回 {"once": [{"node": 节点名, "key": 槽位key, "dsl": "..."}],
+              "loop": [...], "end": [...]}
         列表顺序 = 链里段的先后，运行时按此顺序串 next。
 
         ★ 为什么按段而不是按槽：
@@ -900,9 +1010,13 @@ class JobSetFight(CustomAction):
           如果按槽聚合成一个节点，两段铲子会被合并、节点排到 card1 前面，
           实际执行就变成「先铲完所有，再种」—— 与顺序链不符。
         """
-        out: Dict[str, List[Dict[str, Any]]] = {"once": [], "loop": []}
+        out: Dict[str, List[Dict[str, Any]]] = {"once": [], "loop": [], "end": []}
 
-        for kind, field in (("once", "once_chain"), ("loop", "loop_chain")):
+        for kind, field in (
+            ("once", "once_chain"),
+            ("loop", "loop_chain"),
+            ("end", "end_chain"),
+        ):
             chain = rules.get(field) or []
             # 段序号：同名槽多段时用于区分节点（第一个 _1，第二个 _2 …）
             seq_no: Dict[str, int] = {}
@@ -1026,6 +1140,48 @@ class JobSetRollback(CustomAction):
         for _ in range(times):
             tr.rollback_one()
         _log(f"重开回退 {times} 次 -> {tr.describe()}")
+        return _ok()
+
+
+@AgentServer.custom_action("JobSetEndRestart")
+class JobSetEndRestart(CustomAction):
+    """收尾超时后动作 = 「重开」：重开当前关卡，重开后直接继续开始战斗。
+
+    语义（用户要求）：
+      · **不增加计数器**：重开打的还是同一关，重开后重新识别天数会得到同一关 ->
+        计数器判「抖动」，不会推进，所以这里不需要显式回退。
+      · 调用「通用_重开_暂停」重开当前关卡。
+      · 重开后跳回「无尽挑战_选取植物_开始战斗」直接点开始战斗（不重新选卡）。
+
+    参数（全部可选）：
+        {
+          "通用重开节点": "通用_重开_暂停",
+          "重开后回跳节点": "无尽挑战_选取植物_开始战斗"
+        }
+    """
+
+    def run(self, context: Context, argv) -> Any:
+        param = _parse_param(getattr(argv, "custom_action_param", None))
+
+        restart_node = str(param.get("通用重开节点") or "通用_重开_暂停")
+        back_node = str(param.get("重开后回跳节点") or "无尽挑战_选取植物_开始战斗")
+
+        _log(f"收尾超时 -> 重开当前关卡（{restart_node}，计数器不变）")
+        try:
+            context.run_task(restart_node)
+            _log("收尾重开：通用重开完成")
+        except Exception as e:
+            _log(f"收尾重开：通用重开失败（{type(e).__name__}: {e}）")
+            return _fail()
+
+        _log(f"收尾重开完成 -> 跳回「{back_node}」直接开始战斗")
+        try:
+            context.run_task(back_node)
+            _log("收尾重开：开始战斗流程完成")
+        except Exception as e:
+            _log(f"收尾重开：跳回开始战斗失败（{type(e).__name__}: {e}）")
+            return _fail()
+
         return _ok()
 
 

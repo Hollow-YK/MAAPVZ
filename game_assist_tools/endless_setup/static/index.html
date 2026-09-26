@@ -138,6 +138,10 @@ h1 small { font-size:14px; font-weight:400; color:#888; }
 .cell .job-seq.job-seq-once {
     background:#cbd5e1; color:#475569; box-shadow:0 1px 2px rgba(0,0,0,.18);
 }
+/* 收尾形态：序号底色变红 */
+.cell .job-seq.job-seq-end {
+    background:#dc2626; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.35);
+}
 
 /* ================= 种植顺序链条（拖动整块，决定先种哪个槽） ================= */
 .seq-chain {
@@ -234,12 +238,32 @@ h1 small { font-size:14px; font-weight:400; color:#888; }
     border-left:3px solid #2d7aff;
 }
 .seq-section-loop .seq-section-head { border-left-color:#94a3b8; background:#f1f5f9; color:#64748b; }
+/* 收尾链：绿色系，和单次(蓝)/循环(灰)区分开 */
+.seq-section-end .seq-section-head {
+    border-left-color:#22a65e; background:#f0fdf4; color:#15803d;
+}
 .seq-list { display:flex; flex-direction:column; gap:8px; }
 .seq-empty { font-size:11px; color:#cbd5e1; text-align:center; padding:10px 6px; line-height:1.6; }
+
+/* ---- 三条链的显示过滤栏 ---- */
+.seq-filter-bar {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:6px 10px; margin:0 0 6px;
+    border-bottom:1px solid #eef2f7;
+}
+.seq-filter-title { font-size:11px; color:#94a3b8; }
+.seq-filter-list { display:flex; gap:10px; flex-wrap:wrap; }
+.seq-filter-item {
+    display:inline-flex; align-items:center; gap:4px;
+    font-size:11px; color:#475569; cursor:pointer; user-select:none;
+}
+.seq-filter-item input { width:13px; height:13px; margin:0; cursor:pointer; accent-color:#2d7aff; }
 
 /* ---- 循环形态：序号底色变灰 ---- */
 /* 单次形态：序号底色变灰（循环为默认深色） */
 .seq-idx.seq-idx-once { background:#cbd5e1; color:#475569; }
+/* 收尾链：序号底色红色 */
+.seq-idx.seq-idx-end { background:#dc2626; color:#fff; }
 
 /* ---- 形态标记 ---- */
 .seq-mode {
@@ -248,6 +272,9 @@ h1 small { font-size:14px; font-weight:400; color:#888; }
 }
 .seq-chain.m-once .seq-mode { background:#e2e8f0; color:#475569; }
 .seq-chain.m-once { border-color:#e2e8f0; background:#fcfcfd; }
+/* 收尾链：绿色 */
+.seq-chain.m-end .seq-mode { background:#dcfce7; color:#15803d; }
+.seq-chain.m-end { border-color:#bbf7d0; background:#f7fef9; }
 
 /* ---- 槽位芯片上的形态角标 ---- */
 .slot-mode-badge {
@@ -255,6 +282,28 @@ h1 small { font-size:14px; font-weight:400; color:#888; }
     background:#dbeafe; color:#1d4ed8; font-weight:700;
 }
 .slot-mode-badge.is-once { background:#e2e8f0; color:#475569; }
+.slot-mode-badge.is-end { background:#dcfce7; color:#15803d; }
+
+/* ---- 收尾参数面板（棋盘下侧，收尾落子时才显示）---- */
+.end-params {
+    margin-top:10px; padding:8px 10px;
+    background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px;
+}
+.end-params-title { font-size:13px; font-weight:600; color:#15803d; margin-bottom:6px; }
+.end-params-row {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;
+}
+.end-params-row:last-child { margin-bottom:0; }
+.end-params-row label { font-size:12px; color:#475569; }
+.end-params-row input {
+    width:90px; padding:3px 4px; border:1px solid #d0d7de; border-radius:4px; font-size:12px;
+}
+.end-params-row input:focus { outline:none; border-color:#22a65e; }
+.end-params-row select {
+    padding:3px 4px; border:1px solid #d0d7de; border-radius:4px; font-size:12px; background:#fff;
+}
+.end-params-row select:focus { outline:none; border-color:#22a65e; }
+
 
 /* ---- 独立等待节点 ---- */
 .seq-wait {
@@ -475,6 +524,7 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
 }
 #cellDetail .cd-tag-once { background:#e2e8f0; color:#475569; }
 #cellDetail .cd-tag-loop { background:#dbeafe; color:#1d4ed8; }
+#cellDetail .cd-tag-end { background:#fee2e2; color:#b91c1c; }
 #cellDetail .cd-row { display:flex; align-items:center; gap:7px; padding:2px 0; }
 /* 单次的行整体偏灰，一眼区分 */
 #cellDetail .cd-row-once .cd-name { color:#64748b; }
@@ -488,6 +538,7 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
     background:#dbeafe; color:#1d4ed8; flex:0 0 auto;
 }
 #cellDetail .cd-mode-once { background:#e2e8f0; color:#475569; }
+#cellDetail .cd-mode-end { background:#fee2e2; color:#b91c1c; }
 #cellDetail .cd-meta { font-size:10px; color:#94a3b8; margin-left:auto; white-space:nowrap; }
 
 /* 尊重「减少动态效果」系统设置 */
@@ -543,9 +594,32 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
 .supply-stage {
     position: relative;
     display: flex;
+    flex: 1 1 auto;
     min-height: calc(var(--sc-card-w) * var(--sc-card-ratio) + 34px);
     padding-top: 8px;
 }
+
+/* 堆叠区 + 固定项 并排 */
+.supply-lane { display: flex; align-items: flex-start; gap: 18px; }
+.supply-pinned {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding-left: 14px; margin-left: 4px;
+    border-left: 2px dashed #bfdbfe;
+    flex: 0 0 auto;
+}
+.supply-pinned .sp-pin-label {
+    font-size: 10px; font-weight: 700; color: #2563eb;
+    writing-mode: vertical-rl; letter-spacing: 2px;
+    align-self: center;
+}
+/* 固定项卡：静态定位，不参与堆叠与让位 */
+.supply-card.sp-static {
+    position: static;
+    transform: none !important;
+    z-index: auto;
+    cursor: pointer;
+}
+.supply-card.sp-static:hover { transform: translateY(-4px) !important; }
 
 /* ---- 单张卡：位置由自己的 --i 算出（让位叠加 --shift-x）---- */
 .supply-card {
@@ -691,6 +765,62 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
 }
 .supply-add:hover { background: #f1f5f9; border-color: #94a3b8; }
 
+/* ============ 取消格内项目（多选）弹窗 ============ */
+#cellCancelPicker {
+    position: fixed; inset: 0; z-index: 10070;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(15,23,42,.50);
+}
+#cellCancelPicker.cc-open { display: flex; animation: jobFadeIn .16s ease-out both; }
+#cellCancelPicker .cc-panel {
+    width: min(560px, 92vw); max-height: 80vh;
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(15,23,42,.34);
+    display: flex; flex-direction: column; overflow: hidden;
+    animation: jobPanelUp .24s cubic-bezier(.22,.61,.36,1) both;
+}
+#cellCancelPicker .cc-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 13px 18px; border-bottom: 1px solid #e2e8f0; flex: 0 0 auto;
+}
+#cellCancelPicker .cc-dot { width: 6px; height: 6px; border-radius: 50%; background: #d81e06; }
+#cellCancelPicker .cc-title { font-size: 14px; font-weight: 700; color: #d81e06; }
+#cellCancelPicker .cc-sub { font-size: 11px; color: #94a3b8; margin-left: auto; }
+#cellCancelPicker .cc-close {
+    width: 26px; height: 26px; border: none; border-radius: 7px;
+    background: #f1f5f9; color: #475569; cursor: pointer; font-size: 15px; line-height: 1;
+}
+#cellCancelPicker .cc-close:hover { background: #e2e8f0; }
+#cellCancelPicker .cc-body { padding: 14px 18px; overflow-y: auto; flex: 1 1 auto; }
+#cellCancelPicker .cc-grid { display: flex; flex-direction: column; gap: 6px; }
+#cellCancelPicker .cc-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    background: #f8fafc; border: 1px solid #eef2f7;
+}
+#cellCancelPicker .cc-item:hover { background: #eff6ff; border-color: #93c5fd; }
+#cellCancelPicker .cc-item input { width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: #dc2626; }
+#cellCancelPicker .cc-item .cc-ico { font-size: 15px; }
+#cellCancelPicker .cc-item .cc-name { font-size: 12px; font-weight: 600; color: #334155; }
+#cellCancelPicker .cc-item .cc-kind {
+    font-size: 9px; padding: 1px 5px; border-radius: 4px;
+    background: #e2e8f0; color: #475569;
+}
+#cellCancelPicker .cc-item .cc-kind.k-once { background: #e2e8f0; color: #475569; }
+#cellCancelPicker .cc-item .cc-kind.k-end  { background: #fee2e2; color: #b91c1c; }
+#cellCancelPicker .cc-foot {
+    padding: 10px 18px; border-top: 1px solid #e2e8f0;
+    display: flex; align-items: center; gap: 10px; flex: 0 0 auto;
+}
+#cellCancelPicker .cc-all { font-size: 12px; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+#cellCancelPicker .cc-all input { width: 14px; height: 14px; accent-color: #2d7aff; cursor: pointer; }
+#cellCancelPicker .cc-ok {
+    margin-left: auto; padding: 7px 18px; cursor: pointer;
+    background: #dc2626; color: #fff; border: none; border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+}
+#cellCancelPicker .cc-ok:hover { background: #b91c1c; }
+
 /* ============ 补给项选择弹窗 ============ */
 #supplyPicker {
     position: fixed; inset: 0; z-index: 10060;
@@ -817,6 +947,27 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
 <body>
 <div id="tooltip" class="tooltip-box"></div>
 
+<!-- ============ 取消格内项目（多选）弹窗 ============ -->
+<div id="cellCancelPicker">
+    <div class="cc-panel">
+        <div class="cc-head">
+            <span class="cc-dot"></span>
+            <span class="cc-title">取消哪些项目</span>
+            <span class="cc-sub" id="ccSub"></span>
+            <button class="cc-close" id="ccClose" title="关闭">✕</button>
+        </div>
+        <div class="cc-body">
+            <div class="cc-grid" id="ccGrid"><!-- 由 JS 渲染 --></div>
+        </div>
+        <div class="cc-foot">
+            <label class="cc-all">
+                <input type="checkbox" id="ccAll"> 全选
+            </label>
+            <button class="cc-ok" id="ccOk">确认取消</button>
+        </div>
+    </div>
+</div>
+
 <!-- ============ 补给选取弹窗（堆叠卡片 + 图库，都在这里） ============ -->
 <div id="supplyPicker">
     <div class="sp-panel">
@@ -827,9 +978,12 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
             <button class="sp-close" id="supplyPickerClose" title="关闭">✕</button>
         </div>
         <div class="sp-body">
-            <!-- 上半：当前已选的堆叠卡片（悬停抽牌） -->
+            <!-- 上半：当前已选的堆叠卡片（悬停抽牌）+ 右侧固定项（如「查看」） -->
             <div class="supply-card-section sc-open" id="supplySection">
-                <div class="supply-stage" id="supplyStage"><!-- 卡片由 JS 渲染 --></div>
+                <div class="supply-lane">
+                    <div class="supply-stage" id="supplyStage"><!-- 卡片由 JS 渲染 --></div>
+                    <div class="supply-pinned" id="supplyPinned" style="display:none;"></div>
+                </div>
             </div>
             <!-- 下半：可选图库（点图添加／再点移除） -->
             <div class="sp-lib-title">可选补给项</div>
@@ -949,6 +1103,33 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
         </div>
     </div>
 </div>
+                <!-- 🚩 收尾参数：棋盘上有「收尾」落子时才显示（仅普通关，boss 关无收尾） -->
+                <div id="earlyEndParams" class="end-params" style="display:none;">
+    <div class="end-params-title">🚩 收尾参数</div>
+    <div class="end-params-row">
+        <label>收尾前等待：</label>
+        <input type="number" id="earlyEndPostDelay" min="0" step="500" value="15000">
+    </div>
+    <div class="end-params-row">
+        <label>收尾超时时间：</label>
+        <input type="number" id="earlyEndLastPostDelay" min="0" step="100" value="6000">
+    </div>
+    <div class="end-params-row">
+        <label>收尾超时后动作：</label>
+        <select id="earlyEndAfterAction">
+            <option value="sub">执行子动作</option>
+            <option value="restart">重开</option>
+        </select>
+    </div>
+    <div class="end-params-row" id="earlyEndSubRow" style="display:none;">
+        <label>子动作：</label>
+        <select id="earlyEndSubAction">
+            <option value="once">单次动作</option>
+            <option value="loop">循环动作</option>
+            <option value="end">收尾动作</option>
+        </select>
+    </div>
+</div>
                 </div>
                 <div class="tab-content" id="tabLate">
                     <div id="gridLate" style="grid-template-columns: repeat(9, 68px);"><div class="cell" data-r="0" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R1</span></div><div class="cell" data-r="1" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R2</span></div><div class="cell" data-r="2" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R3</span></div><div class="cell" data-r="3" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R4</span></div><div class="cell" data-r="4" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R5</span></div></div>
@@ -982,9 +1163,13 @@ select, input[type="text"], input[type="number"] { padding:3px 8px; border:1px s
             <button id="seqClose" title="收起">✕</button>
         </div>
         <div class="seq-drawer-tip">
-            上方是<b>一次性链</b>（先执行完），下方是<b>循环链</b>（之后反复执行）。<br>
-            拖动整块调整先后；拖动 ⏱ 等待节点调整间隔。<br>
-             右键槽位（左侧面板或这里）可切换<b>单次 / 循环</b>。
+            三条链：<b>单次链</b>（开局一遍）→ <b>循环链</b>（之后反复）→ <b>收尾链</b>（最后一波执行一次）。<br>
+            拖动整块调整先后；拖动块内某一株可调整块内顺序；拖动 ⏱ 等待节点调整间隔。<br>
+            右键槽位可切换 <b>单次 / 循环 / 收尾</b>。
+        </div>
+        <div class="seq-filter-bar">
+            <span class="seq-filter-title">显示：</span>
+            <div id="seqChainFilter" class="seq-filter-list"><!-- 由 JS 渲染 --></div>
         </div>
         <div id="seqChains" class="seq-drawer-body"></div>
     </aside>
@@ -2422,6 +2607,13 @@ function placeOp(board, opId, r, c) {
 function renderBoard(gridId, boardData, isLate) {
     const gridEl = document.getElementById(gridId);
     jobEnsureSeq(boardData);   // 旧数据/本地缓存恢复时补齐种植序号
+    // 全局种植序号表：链与棋盘角标共用同一套连续编号，保证一一对应
+    const _tbl = jobTables[currentTable];
+    const _gseq = {
+        once: jobBuildGlobalSeq(boardData, _tbl, 'once'),
+        loop: jobBuildGlobalSeq(boardData, _tbl, 'loop'),
+        end:  jobBuildGlobalSeq(boardData, _tbl, 'end')
+    };
     gridEl.style.gridTemplateColumns = `repeat(${cols}, 68px)`;
     gridEl.innerHTML = '';
     for (let r=0; r<rows; r++) for (let c=0; c<cols; c++) {
@@ -2473,11 +2665,13 @@ function renderBoard(gridId, boardData, isLate) {
                 } else {
                     pt.textContent = item.label;
                 }
-                // 种植序号角标（单次=灰底，循环=深底）
+                // 种植序号角标（单次=灰底，循环=深底，收尾=红底）
+                // 数字用「全局种植序号」，与顺序链里的编号一一对应
                 if (typeof item.seq === 'number') {
                     const sn = document.createElement('span');
-                    sn.className = 'job-seq' + (_im === 'once' ? ' job-seq-once' : '');
-                    sn.textContent = item.seq;
+                    sn.className = 'job-seq' + (_im === 'once' ? ' job-seq-once' : (_im === 'end' ? ' job-seq-end' : ''));
+                    const _gk = jobPlacementKey(_im, item.id, r, c, item.seq);
+                    sn.textContent = (_gseq[_im] && _gseq[_im].get(_gk)) || item.seq;
                     pt.appendChild(sn);
                 }
                 d.appendChild(pt);
@@ -2489,8 +2683,9 @@ function renderBoard(gridId, boardData, isLate) {
             // 喂豆 / 铲子等标记也标序号
             if (typeof item.seq === 'number') {
                 const sn = document.createElement('span');
-                sn.className = 'job-seq job-seq-mark' + (_im === 'once' ? ' job-seq-once' : '');
-                sn.textContent = item.seq;
+                sn.className = 'job-seq job-seq-mark' + (_im === 'once' ? ' job-seq-once' : (_im === 'end' ? ' job-seq-end' : ''));
+                const _gk = jobPlacementKey(_im, item.id, r, c, item.seq);
+                sn.textContent = (_gseq[_im] && _gseq[_im].get(_gk)) || item.seq;
                 tag.appendChild(sn);
             }
             d.appendChild(tag);
@@ -2553,14 +2748,33 @@ function renderBoard(gridId, boardData, isLate) {
             e.preventDefault();
             const tr = parseInt(d.dataset.r);
             const tc = parseInt(d.dataset.c);
-            if (boardData[tr] && boardData[tr][tc]) {
+            const cellItems = (boardData[tr] && boardData[tr][tc]) || [];
+            if (!cellItems.length) return;
+
+            // ★ 一格只有 1 个 -> 直接清掉
+            if (cellItems.length === 1) {
                 saveBoardState();
                 boardData[tr][tc] = [];
                 renderAllBoards();
                 updatePreview();
                 jobSaveLocal();
-                setStatus(`🗑️ 已清空 (${tc+1}, ${tr+1})`);
+                setStatus(`🗑️ 已清空 (${tc+1}, ${tr+1})：${cellItems[0].label || cellItems[0].id}`);
+                return;
             }
+
+            // ★ 一格有多个 -> 弹窗让用户勾选要取消哪几个
+            jobPickItemsToCancel(tr, tc, cellItems, function (chosen) {
+                if (!chosen.length) return;
+                saveBoardState();
+                // 保留没被勾选的那些（保持原有先后）
+                boardData[tr][tc] = cellItems.filter(function (it) {
+                    return chosen.indexOf(it) === -1;
+                });
+                renderAllBoards();
+                updatePreview();
+                jobSaveLocal();
+                setStatus(`🗑️ 已从 (${tc+1}, ${tr+1}) 移除 ${chosen.length} 项`);
+            });
         });
         gridEl.appendChild(d);
         enableTooltip(d);
@@ -2571,6 +2785,16 @@ function renderAllBoards() {
     renderBoard('gridEarly', boardEarly, false);
     renderBoard('gridLate', boardLate, true);
     jobRenderSeqChains();   // 棋盘变化后同步刷新顺序链条
+    jobRenderEndParams();
+}
+
+// 只重绘「当前编辑中的那块棋盘」。
+// 链条顺序（拖块/融合/拆分/块内重排）会改变棋盘角标的全局种植序号，
+// 因此改链后除了刷新链条，还要同步重绘棋盘，否则角标要等手动刷新才对得上。
+function jobRenderCurrentBoard() {
+    if (jobIsBossBoard()) renderBoard('gridLate', boardLate, true);
+    else renderBoard('gridEarly', boardEarly, false);
+    jobRenderEndParams();
 }
 
 // ============================================================
@@ -2623,7 +2847,7 @@ function jobShowCellDetail(cellEl, items) {
             jobHideCellDetail();
         });
     }
-    const modeOrder = { once: 0, loop: 1 };
+    const modeOrder = { once: 0, loop: 1, end: 2 };
     const plants = items.filter(function (it) { return it.plant; })
         .sort(function (a, b) {
             const ma = modeOrder[jobItemMode(a)], mb = modeOrder[jobItemMode(b)];
@@ -2635,10 +2859,12 @@ function jobShowCellDetail(cellEl, items) {
     const others = items.filter(function (it) { return !it.plant; });
 
     const nOnce = plants.filter(function (it) { return jobItemMode(it) === 'once'; }).length;
-    const nLoop = plants.length - nOnce;
+    const nEnd = plants.filter(function (it) { return jobItemMode(it) === 'end'; }).length;
+    const nLoop = plants.length - nOnce - nEnd;
     let html = '<div class="cd-title">该格部署（' + items.length + '）'
         + (nOnce ? '<span class="cd-tag cd-tag-once">单次 ' + nOnce + '</span>' : '')
         + (nLoop ? '<span class="cd-tag cd-tag-loop">循环 ' + nLoop + '</span>' : '')
+        + (nEnd ? '<span class="cd-tag cd-tag-end">收尾 ' + nEnd + '</span>' : '')
         + '</div>';
 
     plants.forEach(function (it) {
@@ -2649,8 +2875,8 @@ function jobShowCellDetail(cellEl, items) {
             + (it.plant.img ? '<img src="' + it.plant.img + '" alt="">' : '')
             + '</span>'
             + '<span class="cd-name">' + (it.label || '') + '</span>'
-            + '<span class="cd-mode' + (m === 'once' ? ' cd-mode-once' : '') + '">'
-            + (m === 'once' ? '1×' : '⟳') + '</span>'
+            + '<span class="cd-mode' + (m === 'once' ? ' cd-mode-once' : (m === 'end' ? ' cd-mode-end' : '')) + '">'
+            + (m === 'once' ? '1×' : (m === 'end' ? '收尾' : '⟳')) + '</span>'
             + '<span class="cd-meta">' + (typeof it.seq === 'number' ? ('#' + it.seq + ' ') : '')
             + '(' + (it.col) + ',' + (it.row) + ')</span>'
             + '</div>';
@@ -2659,8 +2885,8 @@ function jobShowCellDetail(cellEl, items) {
         const m = jobItemMode(it);
         html += '<div class="cd-row' + (m === 'once' ? ' cd-row-once' : '') + '">'
             + '<span class="cd-name">' + (it.label || it.id) + '</span>'
-            + '<span class="cd-mode' + (m === 'once' ? ' cd-mode-once' : '') + '">'
-            + (m === 'once' ? '1×' : '⟳') + '</span>'
+            + '<span class="cd-mode' + (m === 'once' ? ' cd-mode-once' : (m === 'end' ? ' cd-mode-end' : '')) + '">'
+            + (m === 'once' ? '1×' : (m === 'end' ? '收尾' : '⟳')) + '</span>'
             + '<span class="cd-meta">(' + (it.col) + ',' + (it.row) + ')</span></div>';
     });
     el.innerHTML = html;
@@ -2715,6 +2941,15 @@ function initTabs() {
             Object.keys(contents).forEach(key => {
                 if (contents[key]) contents[key].classList.toggle('active', key === target);
             });
+            // ★ 切到 boss 关 tab 时，立即归一化 boss 槽位形态：
+            //   残留的「收尾」形态改回「循环」（boss 关不能有收尾）。
+            if (target === 'late') {
+                try {
+                    if (jobNormalizeBossEndModes()) {
+                        jobSaveLocal();
+                    }
+                } catch (e) { console.warn('[tab] 归一化 boss 收尾形态失败', e); }
+            }
             safe(renderOps, target);
             safe(renderQuickSwitches, target);
             safe(renderSlotRemarks);
@@ -4336,17 +4571,23 @@ function jobNewTable() {
         waveEnabled: false,
         slots: {},
         // ---- 普通关配置 ----
-        slotOrder: null,          // 一次性链的槽位顺序（拖动链条调整）
+        slotOrder: null,          // 单次链的槽位顺序（拖动链条调整）
         loopOrder: null,          // 循环链的槽位顺序
+        endOrder: null,           // 收尾链的槽位顺序（最后一波执行一次；仅普通关）
         slotModes: {},            // 槽的放置形态：{ card1:'once'|'loop', feed:..., shovel:... }
         waitAfter: {},            // 动作后的等待秒数：{ 'once|card2|r,c|seq': 3, ... }
+        endPostDelay: 15000,      // 收尾前等待 = 收尾检测节点 post_delay（ms）
+        endLastPostDelay: 6000,   // 收尾超时时间 = 收尾链最后一个动作 post_delay（ms）
+        endAfterAction: 'sub',    // 收尾超时后动作：sub=执行子动作 / restart=重开
+        endSubAction: 'loop',     // 子动作：once=单次动作 / loop=循环动作 / end=收尾动作
         // ---- boss 关配置（与普通关完全独立；null = 未配置 -> boss 关只等结算）----
-        bossSlotOrder: null,      // boss 关一次性链顺序
+        bossSlotOrder: null,      // boss 关单次链顺序
         bossLoopOrder: null,      // boss 关循环链顺序
+        bossEndOrder: null,       // boss 关收尾链顺序（运行时忽略，boss 关无收尾）
         bossSlotModes: {},        // boss 关槽位形态
         bossWaitAfter: {},        // boss 关动作后等待
         supplyPicks: null,        // 补给选取顺序（每个阵容独立；null -> 首次渲染时填默认）
-        innerWaits: { once: {}, loop: {} },   // 槽块内部的等待节点：{ once:{card1:[{gap,sec}]}, loop:{...} }
+        innerWaits: { once: {}, loop: {}, end: {} },   // 槽块内部的等待节点
         boardEarly: Array.from({ length: rows }, () => Array(cols).fill(null).map(() => [])),
         boardLate: Array.from({ length: rows }, () => Array(cols).fill(null).map(() => []))
     };
@@ -4362,10 +4603,17 @@ function jobNewTable() {
         // 沿用上一张表的普通关种植顺序与形态
         if (Array.isArray(last.slotOrder)) t.slotOrder = last.slotOrder.slice();
         if (Array.isArray(last.loopOrder)) t.loopOrder = last.loopOrder.slice();
+        if (Array.isArray(last.endOrder)) t.endOrder = last.endOrder.slice();
         if (last.slotModes) t.slotModes = JSON.parse(JSON.stringify(last.slotModes));
+        // 收尾参数沿用上一张表（用户可能调过 post_delay / 超时后动作）
+        if (typeof last.endPostDelay === 'number') t.endPostDelay = last.endPostDelay;
+        if (typeof last.endLastPostDelay === 'number') t.endLastPostDelay = last.endLastPostDelay;
+        if (last.endAfterAction === 'restart') t.endAfterAction = 'restart';
+        if (last.endSubAction === 'once' || last.endSubAction === 'end') t.endSubAction = last.endSubAction;
         // boss 关配置：上一张表配过才沿用（没配就保持 null -> boss 关只等结算）
         if (Array.isArray(last.bossSlotOrder)) t.bossSlotOrder = last.bossSlotOrder.slice();
         if (Array.isArray(last.bossLoopOrder)) t.bossLoopOrder = last.bossLoopOrder.slice();
+        if (Array.isArray(last.bossEndOrder)) t.bossEndOrder = last.bossEndOrder.slice();
         if (last.bossSlotModes) t.bossSlotModes = JSON.parse(JSON.stringify(last.bossSlotModes));
         if (last.bossWaitAfter) t.bossWaitAfter = JSON.parse(JSON.stringify(last.bossWaitAfter));
     }
@@ -4711,30 +4959,199 @@ function jobAllSlotKeys() {
     return a;
 }
 
-// 该槽当前的放置形态：'once'（单次，灰色）| 'loop'（循环，默认）
+// 该槽当前的放置形态：'once'（单次）| 'loop'（循环，默认）| 'end'（收尾）
 // ★ 普通关与 boss 关各自独立的形态表（跟当前编辑的 tab 走）
+// ★ boss 关不能有收尾：boss 棋盘下 end 一律归一化回 loop。
 function jobSlotMode(t, key) {
     const f = jobModesField();
     const m = (t && t[f]) ? t[f][key] : null;
-    return (m === 'once') ? 'once' : 'loop';
+    const modes = jobIsBossBoard() ? ['once', 'loop'] : JOB_SLOT_MODES;
+    return modes.indexOf(m) === -1 ? 'loop' : m;
 }
-// 单次与循环是各自独立的摆放；形态只决定棋盘标记颜色与所属分区
+// 三个形态是各自独立的摆放；形态决定棋盘标记颜色与所属链
 function jobInOnce(t, key) { return jobSlotMode(t, key) === 'once'; }
 function jobInLoop(t, key) { return jobSlotMode(t, key) === 'loop'; }
+function jobInEnd(t, key)  { return jobSlotMode(t, key) === 'end'; }
 
-// 右键：在「单次」和「循环」之间切换（只有两种）
+// 右键：切换放置形态。
+// 普通关在「单次 → 循环 → 收尾」之间循环；
+// boss 关**没有收尾**，只在「单次 ↔ 循环」之间切换（end 会先归一化回 loop）。
 function jobToggleSlotMode(t, key) {
     const f = jobModesField();
     if (!t[f]) t[f] = {};
-    const next = (jobSlotMode(t, key) === 'once') ? 'loop' : 'once';
+    const modes = jobIsBossBoard() ? ['once', 'loop'] : JOB_SLOT_MODES;
+    const cur = jobSlotMode(t, key);          // 已经归一化（boss 下 end→loop）
+    const i = modes.indexOf(cur);
+    const next = modes[(i + 1) % modes.length];
     t[f][key] = next;
     return next;
 }
 
-function jobModeLabel(m) { return (m === 'once') ? '单次' : '循环'; }
+// 归一化 boss 关槽位形态：把残留的「收尾」形态改回「循环」（上一个合法形态）。
+// 切换到 boss 关 tab 时立即调用，确保 boss 关槽位不再有收尾形态。
+// 返回是否有改动（true = 改了，调用方需要 saveLocal 重存）。
+function jobNormalizeBossEndModes() {
+    const t = jobTables[currentTable];
+    if (!t) return false;
+    const modes = t.bossSlotModes;
+    if (!modes || typeof modes !== 'object') return false;
+    const keys = jobAllSlotKeys();
+    let any = false;
+    keys.forEach(function (key) {
+        if (modes[key] === 'end') {
+            modes[key] = 'loop';   // 回到上一个（循环）
+            any = true;
+        }
+    });
+    return any;
+}
 
-// 棋盘落点的形态：item.mode（'once' | 'loop'）
-function jobItemMode(it) { return (it && it.mode === 'once') ? 'once' : 'loop'; }
+function jobModeLabel(m) {
+    if (m === 'once') return '单次';
+    if (m === 'end') return '收尾';
+    return '循环';
+}
+
+// 棋盘落点的形态：item.mode（'once' | 'loop' | 'end'）
+function jobItemMode(it) {
+    const m = it && it.mode;
+    return JOB_SLOT_MODES.indexOf(m) !== -1 ? m : 'loop';
+}
+
+// ============================================================
+// 收尾参数（棋盘下侧面板）
+//
+//   · 只有当棋盘上放了「收尾」（end 形态）的落子时，该棋盘下侧才显示面板。
+//   · ⚠️ 收尾仅对普通关生效（boss 关不能有收尾），所以只在普通关棋盘下侧显示。
+//   · 可调项（都在普通关表 t 上）：
+//       endPostDelay     = 「收尾前等待」   = 「无尽挑战_收尾」检测节点的 post_delay（默认 15000ms）
+//       endLastPostDelay = 「收尾超时时间」 = 收尾链最后一个动作节点的 post_delay（默认 6000ms）
+//       endAfterAction   = 「收尾超时后动作」= sub（执行子动作）/ restart（重开）
+//       endSubAction     = 「子动作」       = once（单次动作）/ loop（循环动作）/ end（收尾动作）
+// ============================================================
+
+// 棋盘上是否存在「收尾」形态的落子
+function jobBoardHasEnd(board) {
+    if (!Array.isArray(board)) return false;
+    for (let r = 0; r < board.length; r++) {
+        const rowArr = board[r] || [];
+        for (let c = 0; c < rowArr.length; c++) {
+            const items = rowArr[c] || [];
+            for (let i = 0; i < items.length; i++) {
+                if (jobItemMode(items[i]) === 'end') return true;
+            }
+        }
+    }
+    return false;
+}
+
+// 取收尾参数（缺省用默认值；只普通关有）
+function jobEndParams(t) {
+    const post = +(t.endPostDelay);
+    const last = +(t.endLastPostDelay);
+    const after = (t.endAfterAction === 'restart') ? 'restart' : 'sub';
+    const sub = (t.endSubAction === 'once' || t.endSubAction === 'end')
+        ? t.endSubAction : 'loop';
+    return {
+        post: Number.isFinite(post) ? post : 15000,
+        last: Number.isFinite(last) ? last : 6000,
+        after: after,
+        sub: sub
+    };
+}
+
+// 渲染普通关棋盘下侧的收尾参数面板（显示/隐藏 + 回填值）
+function jobRenderEndParams() {
+    const panel = document.getElementById('earlyEndParams');
+    if (!panel) return;
+
+    // boss 关没有收尾 -> 直接隐藏
+    if (jobIsBossBoard()) {
+        panel.style.display = 'none';
+        return;
+    }
+
+    const t = jobTables[currentTable];
+    const hasEnd = t && jobBoardHasEnd(boardEarly);
+
+    panel.style.display = hasEnd ? 'block' : 'none';
+    if (!hasEnd || !t) return;
+
+    const p = jobEndParams(t);
+    const postInput = document.getElementById('earlyEndPostDelay');
+    const lastInput = document.getElementById('earlyEndLastPostDelay');
+    const afterSel = document.getElementById('earlyEndAfterAction');
+    const subSel = document.getElementById('earlyEndSubAction');
+    const subRow = document.getElementById('earlyEndSubRow');
+    if (postInput) postInput.value = p.post;
+    if (lastInput) lastInput.value = p.last;
+    if (afterSel) afterSel.value = p.after;
+    if (subSel) subSel.value = p.sub;
+    // 「子动作」只在「执行子动作」时显示
+    if (subRow) subRow.style.display = (p.after === 'sub') ? 'flex' : 'none';
+}
+
+// 输入 panel（post/last 两个 number）时写回当前表并本地保存
+function jobOnEndParamInput(which) {
+    const t = jobTables[currentTable];
+    if (!t) return;
+    const f = { post: 'endPostDelay', last: 'endLastPostDelay' };
+    const input = document.getElementById(
+        (which === 'post' ? 'earlyEndPostDelay' : 'earlyEndLastPostDelay')
+    );
+    if (!input) return;
+    let v = Number(input.value);
+    if (!Number.isFinite(v)) v = (which === 'post' ? 15000 : 6000);
+    if (v < 0) v = 0;
+    t[f[which]] = v;
+    jobSaveLocal();
+}
+
+// 下拉栏「收尾超时后动作」变化时写回，并刷新「子动作」的显示
+function jobOnEndAfterChange() {
+    const t = jobTables[currentTable];
+    if (!t) return;
+    const sel = document.getElementById('earlyEndAfterAction');
+    if (!sel) return;
+    t.endAfterAction = (sel.value === 'restart') ? 'restart' : 'sub';
+    const subRow = document.getElementById('earlyEndSubRow');
+    if (subRow) subRow.style.display = (sel.value === 'sub') ? 'flex' : 'none';
+    jobSaveLocal();
+}
+
+// 下拉栏「子动作」变化时写回
+function jobOnEndSubChange() {
+    const t = jobTables[currentTable];
+    if (!t) return;
+    const sel = document.getElementById('earlyEndSubAction');
+    if (!sel) return;
+    t.endSubAction = (sel.value === 'once' || sel.value === 'end') ? sel.value : 'loop';
+    jobSaveLocal();
+}
+
+function jobBindEndParams() {
+    const pi = document.getElementById('earlyEndPostDelay');
+    const li = document.getElementById('earlyEndLastPostDelay');
+    const as = document.getElementById('earlyEndAfterAction');
+    const ss = document.getElementById('earlyEndSubAction');
+    if (pi && !pi._endBound) {
+        pi._endBound = true;
+        pi.addEventListener('input', function () { jobOnEndParamInput('post'); });
+    }
+    if (li && !li._endBound) {
+        li._endBound = true;
+        li.addEventListener('input', function () { jobOnEndParamInput('last'); });
+    }
+    if (as && !as._endBound) {
+        as._endBound = true;
+        as.addEventListener('change', jobOnEndAfterChange);
+    }
+    if (ss && !ss._endBound) {
+        ss._endBound = true;
+        ss.addEventListener('change', jobOnEndSubChange);
+    }
+}
+
 
 // 取得某条链的顺序。每一段是 {key, from, to}：
 //   key  = 槽位键（card1 / feed / shovel）
@@ -4852,18 +5269,35 @@ function jobRepairChainCoverage(segs, board, which, allKeys) {
 // ★ 需求：boss 关的组合动作配置（链条顺序、动作后等待、槽位形态）
 //   必须与普通关**完全独立** —— 除了槽位植物（slots/lineup）共用。
 //
-//   普通关（boardEarly）用：slotOrder / loopOrder / waitAfter / slotModes
-//   boss 关（boardLate） 用：bossSlotOrder / bossLoopOrder / bossWaitAfter / bossSlotModes
+//   普通关（boardEarly）用：slotOrder / loopOrder / endOrder / waitAfter / slotModes
+//   boss 关（boardLate） 用：bossSlotOrder / bossLoopOrder / bossEndOrder /
+//                            bossWaitAfter / bossSlotModes
 //
 //   旧数据没有 boss* 字段 —— 按用户要求**不自动拷贝**，boss 关直接等结算
 //   （即 boss 链为空 -> 只跑「继续挑战」识别，不做任何种植）。
+//
+//   ★ 三条链：
+//     once（单次链）—— 开局先执行一遍
+//     loop（循环链）—— 之后反复执行
+//     end （收尾链）—— 检测到最后一波时执行一次，然后等结算
 // ============================================================
 const JOB_FIELD_MAP = {
     once: { normal: 'slotOrder', boss: 'bossSlotOrder' },
     loop: { normal: 'loopOrder', boss: 'bossLoopOrder' },
+    end:  { normal: 'endOrder',  boss: 'bossEndOrder' },
     wait: { normal: 'waitAfter', boss: 'bossWaitAfter' },
     modes: { normal: 'slotModes', boss: 'bossSlotModes' }
 };
+
+// 三条链的显示名与图标
+const JOB_CHAIN_META = {
+    once: { label: '单次链（先执行一遍）',      short: '单次链', icon: '1️⃣' },
+    loop: { label: '循环链（反复执行）',        short: '循环链', icon: '🔁' },
+    end:  { label: '收尾链（最后一波执行一次）', short: '收尾链', icon: '🚩' }
+};
+
+// 槽位形态：once（单次）/ loop（循环）/ end（收尾）
+const JOB_SLOT_MODES = ['once', 'loop', 'end'];
 
 // 当前编辑的是不是 boss 棋盘（'late' tab = boss）
 function jobIsBossBoard() {
@@ -4962,6 +5396,30 @@ function jobPlacementsOf(board, scopeId, selMode) {
 // 某落点的稳定键（用于挂「动作后等待」）
 function jobPlacementKey(mode, scopeId, r, c, seq) {
     return mode + '|' + scopeId + '|' + r + ',' + c + '|' + (seq || 0);
+}
+
+// 计算某条链的「全局种植序号」：按链条里段的先后、段内落点的先后，
+// 给每个落点一个从 1 开始的**连续**序号（跨槽 / 跨块永不重号）。
+// 这样顺序链里的编号是一整段 1..N，而不是每个块各自 1..N，
+// 同时棋盘格子上同形态的角标也用它，保证链与棋盘一一对应。
+// 返回 Map：键 = jobPlacementKey(which, key, r, c, seq) → 全局序号（1 起）。
+function jobBuildGlobalSeq(board, t, which) {
+    const map = new Map();
+    if (!board || !t) return map;
+    const seen = {};
+    let idx = 0;
+    const segs = jobGetChainOrder(t, which, board);
+    segs.forEach(function (seg) {
+        jobSegPlacements(board, seg, which).forEach(function (p) {
+            if (!p || !p.item) return;
+            const k = jobPlacementKey(which, seg.key, p.r, p.c, p.item.seq);
+            if (seen[k]) return;      // 数据异常导致段重叠时，去重避免重号
+            seen[k] = true;
+            idx++;
+            map.set(k, idx);
+        });
+    });
+    return map;
 }
 
 // ============================================================
@@ -5070,7 +5528,11 @@ function jobRenderSupply() {
         return;
     }
 
-    list.forEach(function (item, i) {
+    // ★「查看」不参与排序 —— 单独放在旁边固定显示（见 jobRenderSupplyPinned）
+    const sortable = list.filter(function (it) { return !jobSupplyIsPinned(it); });
+    jobRenderSupplyPinned(list);
+
+    sortable.forEach(function (item, i) {
         const card = document.createElement('div');
         const isPinned = jobSupplyIsPinned(item);
         // 固定项加 sp-pinned -> 蓝色描边（见 CSS）
@@ -5145,10 +5607,11 @@ function jobRenderSupply() {
             const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
             const to = i;
             if (isNaN(from) || from === to) return;
-            const moved = list.splice(from, 1)[0];
-            list.splice(to, 0, moved);
-            jobSaveLocal();
-            jobRenderSupply();
+            // ★ 注意：这里操作的是 sortable（已剔除固定项），
+            //   但真正要改的是 list —— 先按 sortable 算好新顺序，再写回 list。
+            const moved = sortable.splice(from, 1)[0];
+            sortable.splice(to, 0, moved);
+            jobCommitSupplyOrder(list, sortable);
             setStatus('↔ 已调整补给顺序：' + moved.name + ' → 第 ' + (to + 1) + ' 位');
         });
 
@@ -5168,6 +5631,58 @@ function jobRenderSupply() {
     // 空白区提示
     const hint = document.getElementById('supplyHint');
     if (hint) hint.textContent = list.length ? '拖拽卡片可调整顺序' : '';
+}
+
+// 把排序结果写回列表：固定项保持原位，其余按 sortable 的新顺序铺进去
+function jobCommitSupplyOrder(list, sortable) {
+    let k = 0;
+    for (let i = 0; i < list.length; i++) {
+        if (jobSupplyIsPinned(list[i])) continue;      // 固定项不动
+        list[i] = sortable[k++];
+    }
+    jobSaveLocal();
+    jobRenderSupply();
+}
+
+// 「查看」这类固定项：不参与排序，单独画在堆叠区旁边
+function jobRenderSupplyPinned(list) {
+    const box = document.getElementById('supplyPinned');
+    if (!box) return;
+    box.innerHTML = '';
+    const pinned = (list || []).filter(jobSupplyIsPinned);
+    box.style.display = pinned.length ? '' : 'none';
+    if (!pinned.length) return;
+
+    const lab = document.createElement('div');
+    lab.className = 'sp-pin-label';
+    lab.textContent = '固定';
+    box.appendChild(lab);
+
+    pinned.forEach(function (item) {
+        const card = document.createElement('div');
+        card.className = 'supply-card sp-pinned sp-static';
+        card.title = item.name + '（固定项，不参与排序）';
+        card.style.setProperty('--i', '0');
+
+        const img = document.createElement('div');
+        img.className = 'sc-img';
+        const el = document.createElement('img');
+        el.src = SUPPLY_IMG_DIR + encodeURIComponent(item.img);
+        el.alt = item.name || '';
+        el.draggable = false;
+        el.onerror = function () { this.style.display = 'none'; };
+        img.appendChild(el);
+        card.appendChild(img);
+
+        const nm = document.createElement('div');
+        nm.className = 'sc-name';
+        nm.textContent = item.name;
+        card.appendChild(nm);
+
+        // 点它 -> 打开图库（在那边可以取消固定）
+        card.addEventListener('click', function () { jobOpenSupplyPicker(); });
+        box.appendChild(card);
+    });
 }
 
 // 悬停/离开时重算所有卡片的让位
@@ -5350,10 +5865,111 @@ function jobReorderInSeg(t, which, key, seg, dragGidxs, targetGidx) {
 
     jobSaveLocal();
     jobRenderSeqChains();
+    jobRenderCurrentBoard();
     setStatus('↔ 已调整块内顺序：第 ' + (fi + 1) + ' 株 → 第 ' + (ti + 1) + ' 位');
 }
 
 // 渲染种植顺序链条
+// 当前显示哪些链（下拉栏里的勾选状态；默认全选）
+let jobChainVisible = { once: true, loop: true, end: true };
+
+// ============================================================
+// 取消格内项目（多选）弹窗
+//
+// 右键一个格子里有多个项目时弹出，勾选要取消的，确认后移除。
+// 只取消勾选的，其余保持原顺序保留。
+// ============================================================
+let jobCancelCtx = null;   // { items, onDone }
+
+function jobPickItemsToCancel(r, c, items, onDone) {
+    const modal = document.getElementById('cellCancelPicker');
+    const grid = document.getElementById('ccGrid');
+    const sub = document.getElementById('ccSub');
+    if (!modal || !grid) {
+        onDone(items.slice());          // 弹窗元素缺失 -> 退化为全部清空
+        return;
+    }
+
+    grid.innerHTML = '';
+    const checks = [];
+    items.forEach(function (it, i) {
+        const lab = document.createElement('label');
+        lab.className = 'cc-item';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.idx = String(i);
+        checks.push(cb);
+        lab.appendChild(cb);
+
+        const ico = document.createElement('span');
+        ico.className = 'cc-ico';
+        ico.textContent = (it.type === 'feed') ? '🫘'
+            : (it.type === 'shovel') ? '🧹' : '🌿';
+        lab.appendChild(ico);
+
+        const nm = document.createElement('span');
+        nm.className = 'cc-name';
+        nm.textContent = it.label || it.id || ('项目' + (i + 1));
+        lab.appendChild(nm);
+
+        const kind = document.createElement('span');
+        const m = jobItemMode(it);
+        kind.className = 'cc-kind' + (m === 'once' ? ' k-once' : (m === 'end' ? ' k-end' : ''));
+        kind.textContent = jobModeLabel(m);
+        lab.appendChild(kind);
+
+        lab.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (e.target !== cb) cb.checked = !cb.checked;
+            jobSyncCancelAll(checks);
+        });
+        grid.appendChild(lab);
+    });
+
+    if (sub) sub.textContent = '第 (' + (c + 1) + ', ' + (r + 1) + ') 格 · 共 ' + items.length + ' 项';
+
+    const allBox = document.getElementById('ccAll');
+    if (allBox) {
+        allBox.checked = false;
+        // 用 change 而不是 click：click 会先翻转 checked，导致读取到的状态
+        // 与用户看到的相反（实测坑）。change 在勾选状态稳定后才触发。
+        allBox.onchange = function () {
+            const v = this.checked;
+            checks.forEach(function (cb) { cb.checked = v; });
+        };
+    }
+
+    jobCancelCtx = { items: items, onDone: onDone };
+    modal.classList.add('cc-open');
+}
+
+function jobSyncCancelAll(checks) {
+    const allBox = document.getElementById('ccAll');
+    if (!allBox) return;
+    allBox.checked = checks.length > 0 && checks.every(function (cb) { return cb.checked; });
+}
+
+function jobCloseCancelPicker() {
+    const modal = document.getElementById('cellCancelPicker');
+    if (modal) modal.classList.remove('cc-open');
+    jobCancelCtx = null;
+}
+
+function jobConfirmCancelPicker() {
+    if (!jobCancelCtx) return;
+    const chosen = [];
+    document.querySelectorAll('#ccGrid input[type=checkbox]').forEach(function (cb) {
+        if (cb.checked) {
+            const i = parseInt(cb.dataset.idx, 10);
+            if (!isNaN(i) && jobCancelCtx.items[i]) chosen.push(jobCancelCtx.items[i]);
+        }
+    });
+    const done = jobCancelCtx.onDone;
+    jobCloseCancelPicker();
+    if (chosen.length && done) done(chosen);
+}
+
 function jobRenderSeqChains() {
     const box = document.getElementById('seqChains');
     if (!box) return;
@@ -5365,15 +5981,43 @@ function jobRenderSeqChains() {
     const board = isLate ? boardLate : boardEarly;
     jobEnsureSeq(board);
 
-    // 两条链：一次性在前，循环在后
-    jobRenderOneChain(box, t, board, 'once');
-    jobRenderOneChain(box, t, board, 'loop');
+    // 三条链：单次 → 循环 → 收尾（按勾选显示）
+    ['once', 'loop', 'end'].forEach(function (which) {
+        if (jobChainVisible[which] === false) return;
+        jobRenderOneChain(box, t, board, which);
+    });
+    // 同步下拉栏的勾选状态（首次渲染时把默认全勾画出来）
+    jobRenderChainFilter();
 }
 
-// 渲染一条链（which = 'once' | 'loop'）
+// 链显示下拉栏：默认全勾，点一下取消/恢复
+function jobRenderChainFilter() {
+    const box = document.getElementById('seqChainFilter');
+    if (!box) return;
+    box.innerHTML = '';
+    ['once', 'loop', 'end'].forEach(function (which) {
+        const meta = JOB_CHAIN_META[which];
+        const lab = document.createElement('label');
+        lab.className = 'seq-filter-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = jobChainVisible[which] !== false;
+        cb.addEventListener('change', function () {
+            jobChainVisible[which] = this.checked;
+            jobRenderSeqChains();
+        });
+        lab.appendChild(cb);
+        const sp = document.createElement('span');
+        sp.textContent = meta.icon + ' ' + meta.short;
+        lab.appendChild(sp);
+        box.appendChild(lab);
+    });
+}
+
+// 渲染一条链（which = 'once' | 'loop' | 'end'）
 function jobRenderOneChain(box, t, board, which) {
-    const isLoop = (which === 'loop');
-    const segs = jobGetChainOrder(t, which);
+    const meta = JOB_CHAIN_META[which] || JOB_CHAIN_META.loop;
+    const segs = jobGetChainOrder(t, which, board);
 
     // 每条链列出「在该形态下真正落过子」的段。
     // 同一个槽可以被拆成多段（例如 种槽1 → 喂豆 → 再种槽1），所以按段过滤而非按槽去重。
@@ -5385,19 +6029,20 @@ function jobRenderOneChain(box, t, board, which) {
 
     // 链头
     const sec = document.createElement('div');
-    sec.className = 'seq-section' + (isLoop ? ' seq-section-loop' : '');
+    sec.className = 'seq-section'
+        + (which === 'loop' ? ' seq-section-loop' : '')
+        + (which === 'end' ? ' seq-section-end' : '');
     const hd = document.createElement('div');
     hd.className = 'seq-section-head';
-    hd.textContent = isLoop ? '🔁 循环链（反复执行）' : '1️⃣ 单次链（先执行一遍）';
+    hd.textContent = meta.icon + ' ' + meta.label;
     sec.appendChild(hd);
     box.appendChild(sec);
 
     if (!visible.length) {
         const empty = document.createElement('div');
         empty.className = 'seq-empty';
-        empty.textContent = isLoop
-            ? '还没有「循环」落子。（右键左侧槽位切到循环，再到棋盘落子）'
-            : '还没有「单次」落子。（右键左侧槽位切到单次，再到棋盘落子）';
+        empty.textContent = '还没有「' + meta.short.replace('链', '')
+            + '」落子。（右键左侧槽位切到该形态，再到棋盘落子）';
         sec.appendChild(empty);
     }
 
@@ -5405,15 +6050,18 @@ function jobRenderOneChain(box, t, board, which) {
     listBox.className = 'seq-list';
     sec.appendChild(listBox);
 
+    // 全局种植序号（跨块连续 1..N），供每个槽块内的序号角标使用
+    const gseq = jobBuildGlobalSeq(board, t, which);
+
     // 逐段渲染；同一槽的多段各自是独立块，可在链里任意穿插
     visible.forEach(function (seg, pos) {
-        listBox.appendChild(jobBuildSlotBlock(t, board, seg, which, pos, visible));
+        listBox.appendChild(jobBuildSlotBlock(t, board, seg, which, pos, visible, gseq));
     });
 }
 
 // 槽块「内部」的等待节点：[{gap, sec}, ...]，gap = 插在第几个植物之前
 function jobGetInnerWaits(t, which, key) {
-    if (!t.innerWaits || typeof t.innerWaits !== 'object') t.innerWaits = { once: {}, loop: {} };
+    if (!t.innerWaits || typeof t.innerWaits !== 'object') t.innerWaits = { once: {}, loop: {}, end: {} };
     if (!t.innerWaits[which] || typeof t.innerWaits[which] !== 'object') t.innerWaits[which] = {};
     const slot = t.innerWaits[which];
     if (!Array.isArray(slot[key])) slot[key] = [];
@@ -5496,7 +6144,7 @@ function jobBuildInnerWait(t, which, key, wi) {
 }
 
 // 构建一个槽位块（可整块拖动排序）。seg = {key, from, to}
-function jobBuildSlotBlock(t, board, seg, which, pos, visible) {
+function jobBuildSlotBlock(t, board, seg, which, pos, visible, gseq) {
     const key = seg.key;
     const isFeed = (key === 'feed');
     const isShovel = (key === 'shovel');
@@ -5506,7 +6154,7 @@ function jobBuildSlotBlock(t, board, seg, which, pos, visible) {
     const list = jobSegPlacements(board, seg, which);           // 本段包含的落点
     const segCount = jobSegCountFor(t, which, key);             // 该槽被拆成了几段
     const mode = which;                                         // 块显示的是本条链的形态
-    const modeCls = (mode === 'once') ? ' m-once' : ' m-loop';
+    const modeCls = ' m-' + mode;      // m-once / m-loop / m-end
 
     const wrap = document.createElement('div');
     wrap.className = 'seq-chain' + modeCls;
@@ -5619,8 +6267,12 @@ function jobBuildSlotBlock(t, board, seg, which, pos, visible) {
         node.appendChild(cb);
 
         const num = document.createElement('span');
-        num.className = 'seq-idx' + (which === 'once' ? ' seq-idx-once' : '');
-        num.textContent = i + 1;
+        num.className = 'seq-idx'
+            + (which === 'once' ? ' seq-idx-once' : '')
+            + (which === 'end' ? ' seq-idx-end' : '');
+        // 全局种植序号：按整条链连续编号（跨块不重号），与棋盘角标一一对应
+        const _gk = jobPlacementKey(which, key, entry.r, entry.c, entry.item.seq);
+        num.textContent = (gseq && gseq.get(_gk)) || (i + 1);
         node.appendChild(num);
 
         if (plantName) {
@@ -5879,6 +6531,7 @@ function jobPullPicked(t, which, key) {
     jobSeqSel = {};
     jobSaveLocal();
     jobRenderSeqChains();
+    jobRenderCurrentBoard();
     setStatus('⇱ 已拖出 ' + picked.length + ' 株成为独立块（可拖到链里其他位置）');
 }
 
@@ -5949,6 +6602,7 @@ function jobDropPlantsAsBlock(t, which, drag, targetSeg, after) {
     jobSeqSel = {};
     jobSaveLocal();
     jobRenderSeqChains();
+    jobRenderCurrentBoard();
     setStatus('⇱ 已把 ' + taken.length + ' 株变成独立块并插入到指定位置');
 }
 
@@ -5975,6 +6629,7 @@ function jobMoveSegInOrder(t, fromSeg, targetSeg, after, which) {
     jobSaveCurrentBoard();
     jobSaveLocal();
     jobRenderSeqChains();
+    jobRenderCurrentBoard();
     setStatus('🔗 已调整顺序');
 }
 
@@ -6016,6 +6671,7 @@ function jobMergeSegs(t, which, fromSeg, targetSeg) {
     jobSaveCurrentBoard();
     jobSaveLocal();
     jobRenderSeqChains();
+    jobRenderCurrentBoard();
     setStatus('🔗 已把两块融合成一个块');
 }
 
@@ -6033,6 +6689,7 @@ function jobMoveSlotInOrder(t, fromKey, targetKey, after, which) {
     jobSaveCurrentBoard();
     jobSaveLocal();
     jobRenderSeqChains();
+    jobRenderCurrentBoard();
     setStatus('🔗 已调整顺序：' + jobSlotLabel(t, fromKey) + (after ? ' 排到 ' : ' 排到 ') + jobSlotLabel(t, targetKey) + (after ? ' 之后' : ' 之前'));
 }
 
@@ -6139,8 +6796,9 @@ function jobRenderSlots() {
                 const _fm = jobSlotMode(t, 'feed');
                 {
                     const fb = document.createElement('span');
-                    fb.className = 'slot-mode-badge' + (_fm === 'once' ? ' is-once' : ' is-loop');
-                    fb.textContent = (_fm === 'once') ? '1×' : '⟳';
+                    fb.className = 'slot-mode-badge' + (_fm === 'once' ? ' is-once'
+                        : (_fm === 'end' ? ' is-end' : ' is-loop'));
+                    fb.textContent = (_fm === 'once') ? '1×' : (_fm === 'end' ? '🚩' : '⟳');
                     fb.title = '放置形态：' + jobModeLabel(_fm) + '（右键切换）';
                     chip.appendChild(fb);
                 }
@@ -6179,8 +6837,9 @@ function jobRenderSlots() {
                 const _sm = jobSlotMode(t, 'shovel');
                 {
                     const sb = document.createElement('span');
-                    sb.className = 'slot-mode-badge' + (_sm === 'once' ? ' is-once' : ' is-loop');
-                    sb.textContent = (_sm === 'once') ? '1×' : '⟳';
+                    sb.className = 'slot-mode-badge' + (_sm === 'once' ? ' is-once'
+                        : (_sm === 'end' ? ' is-end' : ' is-loop'));
+                    sb.textContent = (_sm === 'once') ? '1×' : (_sm === 'end' ? '🚩' : '⟳');
                     sb.title = '放置形态：' + jobModeLabel(_sm) + '（右键切换）';
                     shovel.appendChild(sb);
                 }
@@ -6234,13 +6893,14 @@ function jobRenderSlots() {
         const _mode = jobSlotMode(t, jobSlotKeyOf(i));
         {
             const mb = document.createElement('span');
-            mb.className = 'slot-mode-badge' + (_mode === 'once' ? ' is-once' : ' is-loop');
-            mb.textContent = (_mode === 'once') ? '1×' : '⟳';
+            mb.className = 'slot-mode-badge' + (_mode === 'once' ? ' is-once'
+                : (_mode === 'end' ? ' is-end' : ' is-loop'));
+            mb.textContent = (_mode === 'once') ? '1×' : (_mode === 'end' ? '🚩' : '⟳');
             mb.title = '放置形态：' + jobModeLabel(_mode) + '（右键切换）';
             chip.appendChild(mb);
         }
 
-        chip.title = name ? ('点击选中后在棋盘落子：' + name + '　|　右键切换单次/循环：' + jobModeLabel(_mode)) : '点击选择植物';
+        chip.title = name ? ('点击选中后在棋盘落子：' + name + '　|　右键切换单次/循环/收尾：' + jobModeLabel(_mode)) : '点击选择植物';
         chip.addEventListener('click', () => {
             if (!name) { jobOpenPicker(i); return; }
             jobArmedSlot = (jobArmedSlot === i) ? 0 : i;
@@ -6549,8 +7209,8 @@ function jobBuildChain(t, board, which) {
         // 该段实际包含的落点（已按 seq 排序，且同一槽内保持落子先后）
         const places = jobSegPlacements(board, seg, which);
         if (!places.length) return;
-        // 该段是「单次」还是「循环」形态的落子 —— 由 chip 自己的 mode 决定
-        const mode = (which === 'loop') ? 'loop' : 'once';
+        // 该段是「单次」还是「循环」或「收尾」形态的落子 —— 由 which 决定
+        const mode = (which === 'loop') ? 'loop' : (which === 'end' ? 'end' : 'once');
         const m = /^card(\d+)$/.exec(seg.key);
         const slot = m ? Number(m[1]) : null;
 
@@ -6662,11 +7322,18 @@ function jobBuild() {
             slotModes: Object.assign({}, t.slotModes || {}),
             slotOrder: Array.isArray(t.slotOrder) ? t.slotOrder.slice() : null,
             loopOrder: Array.isArray(t.loopOrder) ? t.loopOrder.slice() : null,
+            endOrder: Array.isArray(t.endOrder) ? t.endOrder.slice() : null,
             waitAfter: Object.assign({}, t.waitAfter || {}),
+            // 收尾参数（收尾链的可调项，网页端棋盘下侧可编辑；仅普通关有）
+            endPostDelay: (typeof t.endPostDelay === 'number' ? t.endPostDelay : 15000),
+            endLastPostDelay: (typeof t.endLastPostDelay === 'number' ? t.endLastPostDelay : 6000),
+            endAfterAction: (t.endAfterAction === 'restart' ? 'restart' : 'sub'),
+            endSubAction: (t.endSubAction === 'once' || t.endSubAction === 'end' ? t.endSubAction : 'loop'),
             // boss 关配置：null = 未配置 -> 运行时 boss 关不做种植，只等结算
             bossSlotModes: Object.assign({}, t.bossSlotModes || {}),
             bossSlotOrder: Array.isArray(t.bossSlotOrder) ? t.bossSlotOrder.slice() : null,
             bossLoopOrder: Array.isArray(t.bossLoopOrder) ? t.bossLoopOrder.slice() : null,
+            bossEndOrder: Array.isArray(t.bossEndOrder) ? t.bossEndOrder.slice() : null,
             bossWaitAfter: Object.assign({}, t.bossWaitAfter || {}),
             // 补给选取顺序（boss 关专属，每个阵容独立）
             supplyPicks: Array.isArray(t.supplyPicks)
@@ -6684,9 +7351,10 @@ function jobBuild() {
                 wave: t.waveEnabled === true,
                 loop: t.loopPlant,
                 once: t.oncePlant,
-                // ★ 权威的两条链（顺序由 slotOrder / loopOrder 决定）
+                // ★ 权威的三条链（顺序由 slotOrder / loopOrder / endOrder 决定）
                 once_chain: jobBuildChain(t, t.boardEarly, 'once'),
                 loop_chain: jobBuildChain(t, t.boardEarly, 'loop'),
+                end_chain: jobBuildChain(t, t.boardEarly, 'end'),
                 // 兼容旧字段：展平视图（单次链在前、循环链在后）
                 sequence: jobExtractSequence(t.boardEarly, t.slots, t)
             },
@@ -6697,6 +7365,7 @@ function jobBuild() {
                 wave: t.waveEnabled === true,
                 once_chain: jobBuildChain(t, bossBoard, 'once'),
                 loop_chain: jobBuildChain(t, bossBoard, 'loop'),
+                end_chain: jobBuildChain(t, bossBoard, 'end'),
                 sequence: jobExtractSequence(bossBoard, t.slots, t)
             }
         };
@@ -6911,15 +7580,24 @@ function jobApplyLoaded(job, code) {
         if (t.bossSlotModes === undefined) t.bossSlotModes = {};
         if (!Array.isArray(t.bossSlotOrder)) t.bossSlotOrder = null;
         if (!Array.isArray(t.bossLoopOrder)) t.bossLoopOrder = null;
+        if (!Array.isArray(t.bossEndOrder)) t.bossEndOrder = null;
         if (!t.bossWaitAfter || typeof t.bossWaitAfter !== 'object') t.bossWaitAfter = {};
+        // 收尾参数（缺省默认 15000 / 6000；仅普通关）
+        if (typeof t.endPostDelay !== 'number') t.endPostDelay = 15000;
+        if (typeof t.endLastPostDelay !== 'number') t.endLastPostDelay = 6000;
+        if (t.endAfterAction !== 'restart') t.endAfterAction = 'sub';
+        if (t.endSubAction !== 'once' && t.endSubAction !== 'end') t.endSubAction = 'loop';
         // 补给选取：数组（null/缺失都留空，由 jobSupplyList 填默认）
         if (!Array.isArray(t.supplyPicks)) t.supplyPicks = null;
-        if (!t.innerWaits || typeof t.innerWaits !== 'object') t.innerWaits = { once: {}, loop: {} };
+        if (!t.innerWaits || typeof t.innerWaits !== 'object') t.innerWaits = { once: {}, loop: {}, end: {} };
         if (!t.innerWaits.once || typeof t.innerWaits.once !== 'object') t.innerWaits.once = {};
         if (!t.innerWaits.loop || typeof t.innerWaits.loop !== 'object') t.innerWaits.loop = {};
-        // 两条链的顺序（缺了会让链条顺序错乱 / 循环链看起来是空的）
+        if (!t.innerWaits.end || typeof t.innerWaits.end !== 'object') t.innerWaits.end = {};
+        // 三条链的顺序（缺了会让链条顺序错乱 / 收尾链看起来是空的）
         if (!Array.isArray(t.slotOrder)) t.slotOrder = null;
         if (!Array.isArray(t.loopOrder)) t.loopOrder = null;
+        if (!Array.isArray(t.endOrder)) t.endOrder = null;
+        if (!Array.isArray(t.bossEndOrder)) t.bossEndOrder = null;
         // 棋盘落点补齐 mode/seq（旧数据没有这两个字段）
         ['boardEarly', 'boardLate'].forEach(function (bk) {
             (t[bk] || []).forEach(function (rowArr) {
@@ -7069,10 +7747,18 @@ function jobLoadLocal() {
             if (t.bossSlotModes === undefined) t.bossSlotModes = {};
             if (!Array.isArray(t.bossSlotOrder)) t.bossSlotOrder = null;
             if (!Array.isArray(t.bossLoopOrder)) t.bossLoopOrder = null;
+            if (!Array.isArray(t.bossEndOrder)) t.bossEndOrder = null;
             if (!t.bossWaitAfter || typeof t.bossWaitAfter !== 'object') t.bossWaitAfter = {};
-            if (!t.innerWaits || typeof t.innerWaits !== 'object') t.innerWaits = { once: {}, loop: {} };
+            // 收尾参数（缺省默认 15000 / 6000；仅普通关）
+            if (typeof t.endPostDelay !== 'number') t.endPostDelay = 15000;
+            if (typeof t.endLastPostDelay !== 'number') t.endLastPostDelay = 6000;
+            if (t.endAfterAction !== 'restart') t.endAfterAction = 'sub';
+            if (t.endSubAction !== 'once' && t.endSubAction !== 'end') t.endSubAction = 'loop';
+            if (!Array.isArray(t.endOrder)) t.endOrder = null;
+            if (!t.innerWaits || typeof t.innerWaits !== 'object') t.innerWaits = { once: {}, loop: {}, end: {} };
             if (!t.innerWaits.once || typeof t.innerWaits.once !== 'object') t.innerWaits.once = {};
             if (!t.innerWaits.loop || typeof t.innerWaits.loop !== 'object') t.innerWaits.loop = {};
+            if (!t.innerWaits.end || typeof t.innerWaits.end !== 'object') t.innerWaits.end = {};
         });
         const m = data.meta || {};
         // 元信息只有「名字 + 代码」（代码/版本/最大关卡输入框已移除）
@@ -7108,6 +7794,8 @@ function jobInit() {
     if (!restored) jobNewTable();
     jobLoadTable(currentTable, true);   // skipSave：避免用空棋盘覆盖已恢复的数据
     jobLoadFavs();                      // 恢复右键收藏（localStorage）
+    jobBindEndParams();                 // 收尾参数面板的输入监听
+    jobRenderEndParams();               // 初始显隐（按当前棋盘是否有收尾落子）
     jobRenderSlots();
     // ⚠️ 必须带 catch：jobLoadPlants 内部是 fetch('/plants')，一旦失败 Promise 会静默 reject，
     //    .then 永不执行 → 槽位面板就一直是空的（不报错，只是没内容）。
@@ -7211,6 +7899,21 @@ function jobInit() {
     }
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') jobCloseSupplyPicker();
+    });
+
+    // ============ 取消格内项目（多选）弹窗 ============
+    const ccClose = document.getElementById('ccClose');
+    if (ccClose) ccClose.addEventListener('click', jobCloseCancelPicker);
+    const ccOk = document.getElementById('ccOk');
+    if (ccOk) ccOk.addEventListener('click', jobConfirmCancelPicker);
+    const ccModal = document.getElementById('cellCancelPicker');
+    if (ccModal) {
+        ccModal.addEventListener('click', function (e) {
+            if (e.target === ccModal) jobCloseCancelPicker();
+        });
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') jobCloseCancelPicker();
     });
     const spReset = document.getElementById('supplyReset');
     if (spReset) {

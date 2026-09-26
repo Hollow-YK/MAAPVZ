@@ -200,7 +200,7 @@ class Table:
                 })
 
         def _chain(key: str) -> List[Dict[str, Any]]:
-            """规范化 once_chain / loop_chain。
+            """规范化 once_chain / loop_chain / end_chain。
 
             每项：{key, slot, type, label, mode, cells:[格子R_C, ...], waits:[秒,...]}
             链条里段的先后 = 执行先后，段内 cells 的先后 = 该槽落子先后。
@@ -211,7 +211,8 @@ class Table:
             raw_chain = raw.get(key)
             if not isinstance(raw_chain, (list, tuple)):
                 return out
-            which = "loop" if key == "loop_chain" else "once"
+            # 链字段名 -> 形态名（once / loop / end），用于匹配 waitAfter 的键前缀
+            which = {"once_chain": "once", "loop_chain": "loop", "end_chain": "end"}.get(key, "once")
             for seg in raw_chain:
                 if not isinstance(seg, dict):
                     continue
@@ -292,6 +293,7 @@ class Table:
             "sequence": sequence,
             "once_chain": _chain("once_chain"),
             "loop_chain": _chain("loop_chain"),
+            "end_chain": _chain("end_chain"),
         }
 
     # -- 查询 --------------------------------------------------------------
