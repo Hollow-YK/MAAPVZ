@@ -147,11 +147,19 @@ function jobGetChainOrder(t, which, board) {
     let raw = Array.isArray(t[field]) ? t[field] : [];
 
     // 兼容旧数据：以前存的是裸键名字符串数组 → 转成 {key, from:0, to:null}
+    // ★ 通用动作段（key = 'ga:<id>'）没有格子，用 ga 字段标记，不走 from/to
     let segs = raw.map(function (e) {
-        if (typeof e === 'string') return { key: e, from: 0, to: null };
+        if (typeof e === 'string') {
+            return jobGenericActionById(e) ? { key: JOB_GA_PREFIX + e, ga: e }
+                                           : { key: e, from: 0, to: null };
+        }
         if (e && typeof e === 'object' && e.key) {
+            const k = String(e.key);
+            if (jobIsGenericKey(k)) {
+                return { key: k, ga: k.slice(JOB_GA_PREFIX.length) };
+            }
             const o = {
-                key: String(e.key),
+                key: k,
                 from: e.from | 0,
                 to: (e.to === null || e.to === undefined) ? null : (e.to | 0)
             };
@@ -161,7 +169,10 @@ function jobGetChainOrder(t, which, board) {
             return o;
         }
         return null;
-    }).filter(function (e) { return e && all.indexOf(e.key) !== -1; });
+    }).filter(function (e) {
+        if (!e) return false;
+        return jobIsGenericKey(e.key) || all.indexOf(e.key) !== -1;
+    });
 
     // 补齐：每个槽至少要有一段；没有任何段的槽补到末尾
     all.forEach(function (k) {

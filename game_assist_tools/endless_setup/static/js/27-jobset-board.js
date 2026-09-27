@@ -147,7 +147,9 @@ function jobRenderOneChain(box, t, board, which) {
 
     // 每条链列出「在该形态下真正落过子」的段。
     // 同一个槽可以被拆成多段（例如 种槽1 → 喂豆 → 再种槽1），所以按段过滤而非按槽去重。
+    // ★ 通用动作段（点波/捡豆/加速）没有格子，永远可见。
     const visible = segs.filter(function (seg) {
+        if (jobIsGenericKey(seg.key)) return true;
         if (seg.key === 'feed' || seg.key === 'shovel') return jobSegPlacements(board, seg, which).length > 0;
         const s = Number(String(seg.key).replace('card', ''));
         return !!t.slots[s] && jobSegPlacements(board, seg, which).length > 0;
@@ -270,7 +272,98 @@ function jobBuildInnerWait(t, which, key, wi) {
 }
 
 // 构建一个槽位块（可整块拖动排序）。seg = {key, from, to}
+// 通用动作块（点波/捡豆/加速）：没有格子，只有一个整块
+function jobBuildGenericBlock(t, board, seg, which, pos, visible) {
+    const ga = jobGenericActionOfKey(seg.key) || { name: seg.key, icon: '⚡' };
+
+    const wrap = document.createElement('div');
+    wrap.className = 'seq-chain seq-chain-generic m-' + which;
+    wrap.draggable = true;
+    wrap.dataset.key = seg.key;
+    wrap.dataset.which = which;
+    wrap.dataset.ga = ga.id;
+
+    const head = document.createElement('div');
+    head.className = 'seq-chain-head';
+
+    const grip = document.createElement('span');
+    grip.className = 'seq-grip';
+    grip.textContent = '⠿';
+    head.appendChild(grip);
+
+    const ord = document.createElement('span');
+    ord.className = 'seq-order';
+    ord.textContent = pos + 1;
+    head.appendChild(ord);
+
+    const ico = document.createElement('span');
+    ico.className = 'seq-ico';
+    ico.textContent = ga.icon || '⚡';
+    head.appendChild(ico);
+
+    const hl = document.createElement('span');
+    hl.className = 'seq-slot';
+    hl.textContent = ga.name;
+    head.appendChild(hl);
+
+    const badge = document.createElement('span');
+    badge.className = 'ga-badge';
+    badge.textContent = '动作';
+    head.appendChild(badge);
+
+    // 删除按钮
+    const del = document.createElement('button');
+    del.className = 'seq-chain-del';
+    del.textContent = '✕';
+    del.title = '从这条链里移除此动作';
+    del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        jobRemoveGenericSeg(t, which, board, seg);
+    });
+    head.appendChild(del);
+
+    wrap.appendChild(head);
+
+    // 整块拖拽（复用槽块的拖拽语义：拖到别处 = 移动位置）
+    wrap.addEventListener('dragstart', function (e) {
+        seqDrag = { kind: 'generic', key: seg.key, which: which, ga: ga.id };
+        wrap.classList.add('seq-dragging');
+        try {
+            e.dataTransfer.setData('text/plain', 'generic');
+            e.dataTransfer.effectAllowed = 'move';
+        } catch (err) { }
+        e.stopPropagation();
+    });
+    wrap.addEventListener('dragend', function () {
+        wrap.classList.remove('seq-dragging');
+        seqDrag = null;
+        jobClearSeqOver();
+    });
+
+    return wrap;
+}
+
+// 从链里移除某个通用动作段
+function jobRemoveGenericSeg(t, which, board, seg) {
+    const field = jobChainField(which, board);
+    const arr = Array.isArray(t[field]) ? t[field] : null;
+    if (arr) {
+        const i = arr.findIndex(function (s) {
+            return s && String(s.key) === seg.key;
+        });
+        if (i >= 0) arr.splice(i, 1);
+    }
+    jobSaveLocal();
+    jobRenderSeqChains();
+    const ga = jobGenericActionOfKey(seg.key);
+    setStatus('🗑 已从链里移除：' + (ga ? ga.name : seg.key));
+}
+
 function jobBuildSlotBlock(t, board, seg, which, pos, visible, gseq) {
+    // ★ 通用动作走单独的分支（没有格子、没有落点）
+    if (jobIsGenericKey(seg.key)) {
+        return jobBuildGenericBlock(t, board, seg, which, pos, visible);
+    }
     const key = seg.key;
     const isFeed = (key === 'feed');
     const isShovel = (key === 'shovel');

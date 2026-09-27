@@ -5,6 +5,76 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MaaPvz—可视化无尽通用框架</title>
+<!-- ============================================================================
+  文件结构与功能说明（仅注释，不影响任何功能）
+  ============================================================================
+  本目录 = 植物大战僵尸「无尽挑战」可视化布阵编辑器的前端静态资源。
+  一个典型的编辑流程：
+    左侧「无尽选项」决定整体行为开关 → 「槽位植物」为 8 个卡槽选植物 →
+    「布阵棋盘」把 种植/守卫菇/铲子/喂豆/抛花/魔甘 等操作落到 9×5 格子里 →
+    右侧「种植顺序」把落子排成 单次/循环/收尾 三条执行链 →
+    下方「作业集」把多段阵容打包为可保存/导入/导出的配置。
+
+  ── 目录结构 ────────────────────────────────────────────────
+  index.html            页面骨架 + 各弹窗/面板容器（本文件，其余由 JS 动态渲染）
+  plants.json           全植物数据表（约 300+ 条目）：name 中文名 / en 英文名 /
+                        rarity 品质名 / rare 数值(0~4) / img 图片路径
+  css/base.css          主样式：棋盘格子、标签、顺序链、弹窗、堆叠卡片、动效
+  css/vendor-fluent.css 第三方 Fluent UI 样式（未压缩单行，仅供 .ms-* 类兜底）
+  card_bg/rare_0~4.webp 卡槽品质背景图（白/绿/蓝/紫/橙）
+  plant/*.webp          各植物立绘（由 plants.json 的 img 字段引用）
+  supply/*.webp         补给项图片（由补给选取弹窗引用）
+
+  ── 脚本加载顺序与分工（严格依赖顺序，不能调换）────────────
+  【选项树编辑器 01–14】
+  01-options.js     OPTION_DEFS：完整的「无尽选项」定义树（select/switch/input/checkbox
+                    四种节点 + 卡槽种植/补植物/铲子/守卫菇等大量动态生成子节点）
+  02-tooltip.js     全局悬浮提示系统（data-tooltip 属性 + 延迟 + MutationObserver 监听新元素）
+  03-slot-remarks.js 卡槽备注（前期 8 卡 / 后期补卡2~8）的渲染与输入
+  04-cards.js       操作项定义（EARLY_CARDS/LATE_PATCH/ALL_OPS 等）+ 撤销重做栈 +
+                    键盘导航（WASD/方向键选操作、Ctrl+Z/Y 撤销重做）
+  05-render-ops.js  把操作项渲染成可点选/拖拽的 .op-item，含说明 tip 与选中态
+  06-switches.js    左侧快捷开关（SWITCH_GROUPS）+ 开关间依赖规则（DEPENDENCY_RULES）
+                    + 坐标输入框（列/行）
+  07-right-controls.js 右侧快速开关面板 + 前期「球果切换形态」控件
+  08-board-data.js  棋盘核心：9×5 数据、放置/删除/计数、格子渲染、拖放落子、
+                    右键清空、悬停 1.5s 弹出格内部署详情、tab 切换
+  09-option-tree.js 把 OPTION_DEFS 递归渲染成左侧可交互的选项树（buildOptionUI）
+  10-export.js      构建导出用配置实例（buildFullInstance → 完整 MAA 配置 JSON）
+  11-import.js      导入 JSON → 解析并重建棋盘与界面状态
+  12-preview.js     预览刷新、状态提示、导出/复制/恢复默认、保存到后端
+  13-intervals.js   前期 Boss 喂豆间隔输入 + 前期「切换编队」控件
+  14-onload.js      页面对加载入口：初始化一切并绑定按钮事件
+
+  【作业集（JobSet）编辑器 20–30】
+  20-jobset-core.js    作业集核心数据：jobTables（多张阵容表）、currentTable、
+                       槽位选择(jobArmedSlot)、新建/切换/保存阵容
+  21-jobset-levels.js  关卡区间（1~149 线性推进）计算、转阵容关同步、落子/序号计算
+  22-jobset-chain.js   种植顺序链辅助：槽位键归一化、形态切换(once/loop/end)、
+                       boss 关收尾形态归一化
+  23-jobset-end.js     收尾参数（收尾前等待/超时/超时后动作/子动作）读取与渲染
+  24-jobset-fields.js  字段映射表(JOB_FIELD_MAP)、通用动作定义、链落点与全局序号计算
+  25-jobset-supply.js  补给选取：堆叠卡片拖拽排序 + 固定项 + 图库（boss 关专属）
+  26-jobset-supply-pick.js 补给选择弹窗 + 链段内落点重排
+  27-jobset-board.js   棋盘编辑器主体：顺序链渲染/拖拽、槽位面板、植物选择器(收藏/过滤)、
+                       作业集数据导出(jobBuild)
+  28-jobset-io.js      作业集下拉栏与后端读写（list_jobs / 删除 / 下载远程作业集）
+  29-jobset-init.js    localStorage 本地缓存(刷新不丢) + 整体初始化(jobInit)
+  30-jobset-generic.js 通用动作（点波/捡豆/加速）：无需格子直接插链 + 选链弹窗
+
+  ── 页面内主要区块（自上而下）──────────────────────────────
+  #tooltip / #cellCancelPicker / #genPicker / #supplyPicker  全局弹层（由 JS 控制显隐）
+  .toolbar                                  撤销 / 重做按钮
+  #jobsetPanel                              作业集选择、保存、删除、阵容标签、关卡区间、换阵
+  #plantPicker                              植物选择器弹层（搜索 / 品质过滤 / 网格）
+  #slotPlantPanel                           槽位植物面板（8 槽 + 喂豆 + 铲子）
+  .option-tree (#optionTree)                无尽选项树（当期模式 → 植物配置 → 各开关）
+  .board (#gridEarly / #gridLate)           普通关 / boss 关 两套 9×5 棋盘
+  #earlyEndParams                           收尾参数面板（棋盘有「收尾」落子时才显示）
+  #supplyToggle                             补给选取入口（boss 关版）
+  #seqToggle / #seqDrawer                   右侧滑出的「种植顺序」面板（单次/循环/收尾三链）
+  #exportNoteModal                          导出卡槽备注询问弹窗
+  ============================================================================ -->
 <!-- 样式：主样式 + 第三方 Fluent UI 样式（保持原层叠顺序） -->
 <link rel="stylesheet" href="/static/css/base.css">
 <link rel="stylesheet" href="/static/css/vendor-fluent.css">
@@ -29,6 +99,37 @@
                 <input type="checkbox" id="ccAll"> 全选
             </label>
             <button class="cc-ok" id="ccOk">确认取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ 通用动作 -> 选链弹窗 ============ -->
+<div id="genPicker">
+    <div class="gp-panel">
+        <div class="gp-head">
+            <span class="gp-dot"></span>
+            <span class="gp-title">插入通用动作</span>
+            <button class="gp-close" id="gpClose" title="关闭">✕</button>
+        </div>
+        <div class="gp-body">
+            <div class="gp-act">
+                <span class="ga-ico" id="gpIco">⚡</span>
+                <div>
+                    <div class="ga-name" id="gpName">动作</div>
+                    <div class="gp-desc" id="gpDesc"></div>
+                </div>
+            </div>
+            <div class="gp-label">插入到哪条链？</div>
+            <div class="gp-target" id="gpTargetRow">
+                <span class="gp-arrow" id="gpPrev" title="上一条链">◀</span>
+                <span class="gp-chain" id="gpChain">1️⃣ 单次链（先执行一遍）</span>
+                <span class="gp-arrow" id="gpNext" title="下一条链">▶</span>
+            </div>
+            <div class="gp-hint">点击 / 右键可切换目标链（收尾链仅普通关有）</div>
+        </div>
+        <div class="gp-foot">
+            <button class="gp-cancel" id="gpCancel">取消</button>
+            <button class="gp-ok" id="gpOk">确认插入</button>
         </div>
     </div>
 </div>
@@ -158,6 +259,8 @@
                     <div class="tab" data-tab="late" data-tooltip="切换到boss关棋盘（使用AD快捷切换）">boss关</div>
                 </div>
                 <div class="tab-content active" id="tabEarly">
+                    <div class="board-with-actions">
+                    <div class="board-main">
                     <div id="gridEarly" style="grid-template-columns: repeat(9, 68px);"><div class="cell" data-r="0" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R1</span></div><div class="cell" data-r="1" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R2</span></div><div class="cell" data-r="2" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R3</span></div><div class="cell" data-r="3" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R4</span></div><div class="cell" data-r="4" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R5</span></div></div>
                     <div id="earlyFeedIntervals" style="display:none; margin-top:10px; padding:8px; background:#f0fdf4; border-radius:6px; border:1px solid #bbf7d0;">
     <div style="font-size:13px; font-weight:600; margin-bottom:4px;">⏱️ 普通关自定义Boss喂豆间隔设置</div>
@@ -168,6 +271,9 @@
         </div>
     </div>
 </div>
+                    </div><!-- /board-main -->
+                    <div class="gen-actions" id="genActions"><!-- 由 JS 渲染 --></div>
+                    </div><!-- /board-with-actions -->
                 <!-- 🚩 收尾参数：棋盘上有「收尾」落子时才显示（仅普通关，boss 关无收尾） -->
                 <div id="earlyEndParams" class="end-params" style="display:none;">
     <div class="end-params-title">🚩 收尾参数</div>
@@ -197,7 +303,12 @@
 </div>
                 </div>
                 <div class="tab-content" id="tabLate">
+                    <div class="board-with-actions">
+                    <div class="board-main">
                     <div id="gridLate" style="grid-template-columns: repeat(9, 68px);"><div class="cell" data-r="0" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R1</span></div><div class="cell" data-r="0" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R1</span></div><div class="cell" data-r="1" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R2</span></div><div class="cell" data-r="1" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R2</span></div><div class="cell" data-r="2" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R3</span></div><div class="cell" data-r="2" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R3</span></div><div class="cell" data-r="3" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R4</span></div><div class="cell" data-r="3" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R4</span></div><div class="cell" data-r="4" data-c="0" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C1</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="1" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C2</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="2" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C3</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="3" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C4</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="4" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C5</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="5" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C6</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="6" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C7</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="7" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C8</span><span class="row-label">R5</span></div><div class="cell" data-r="4" data-c="8" data-tooltip="点击放置选中的操作，右键清空该格" data-tooltip-delay="1000"><span class="col-label">C9</span><span class="row-label">R5</span></div></div>
+                    </div><!-- /board-main -->
+                    <div class="gen-actions" id="genActionsBoss"><!-- 由 JS 渲染 --></div>
+                    </div><!-- /board-with-actions -->
                 </div>
                 <!-- ⏱️ 喂豆间隔设置面板已整体移除（小关/Boss关/Boss关2 间隔都不再用） -->
                 <!-- ============ 补给选取（boss 关专属，每个阵容独立） ============
@@ -286,4 +397,5 @@
 <script src="/static/js/27-jobset-board.js"></script>
 <script src="/static/js/28-jobset-io.js"></script>
 <script src="/static/js/29-jobset-init.js"></script>
+<script src="/static/js/30-jobset-generic.js"></script>
 </body></html>

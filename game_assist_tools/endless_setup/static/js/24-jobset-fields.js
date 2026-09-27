@@ -35,6 +35,39 @@ const JOB_CHAIN_META = {
 // 槽位形态：once（单次）/ loop（循环）/ end（收尾）
 const JOB_SLOT_MODES = ['once', 'loop', 'end'];
 
+// ============================================================
+// 通用动作（不需要格子，直接插进顺序链）
+//
+//   · 放在棋盘右侧的按钮组里，点一下弹窗确认插入哪条链。
+//   · 存进链里的是 key = 'ga:<id>' 的段（没有格子、没有落点）。
+//   · 目前只有三个：点波 / 捡豆 / 加速（后续可扩）。
+//   · ⚠️ 运行时尚未消费这些段（作业集里暂时不生效）。
+// ============================================================
+const JOB_GENERIC_ACTIONS = [
+    { id: 'wave',  name: '点波', icon: '🌊', desc: '点一次波（催僵尸）' },
+    { id: 'bean',  name: '捡豆', icon: '🫘', desc: '捡一次能量豆' },
+    { id: 'speed', name: '加速', icon: '⏩', desc: '切换加速' }
+];
+
+// 通用动作的段前缀
+const JOB_GA_PREFIX = 'ga:';
+
+function jobGenericActionById(id) {
+    return JOB_GENERIC_ACTIONS.filter(function (a) { return a.id === id; })[0] || null;
+}
+
+// 判断某个 key 是不是通用动作段，是则返回动作定义
+function jobGenericActionOfKey(key) {
+    const k = String(key || '');
+    if (k.indexOf(JOB_GA_PREFIX) !== 0) return null;
+    return jobGenericActionById(k.slice(JOB_GA_PREFIX.length));
+}
+
+// 通用动作段没有棋盘落点，永远算「可见」
+function jobIsGenericKey(key) {
+    return !!jobGenericActionOfKey(key);
+}
+
 // 当前编辑的是不是 boss 棋盘（'late' tab = boss）
 function jobIsBossBoard() {
     try {
@@ -67,6 +100,8 @@ function jobModesField() {
 //   自定义先后（如 [2,0,1]）。order 的长度与 picked/区间展开的落点一致；
 //   对不上的部分（增删落点后）按 seq 追加到末尾，保证不丢落点。
 function jobSegPlacements(board, seg, which) {
+    // ★ 通用动作段没有落点，直接返回空
+    if (!seg || jobIsGenericKey(seg.key)) return [];
     const all = jobPlacementsOf(board, seg.key, which);
     let idxs;
     if (Array.isArray(seg.picked) && seg.picked.length) {
