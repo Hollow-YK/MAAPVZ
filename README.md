@@ -18,15 +18,20 @@
 
 - [x] 启动游戏（支持4399、小米、B服、华为等主流渠道服）
 - [x] 每日签到
-- [x] 每日50钻（需拥有免广告卡）
+- [x] 免广告卡的使用（每日50钻石，潘妮秘宝，超z钥匙，装扮转基因，红水晶）
 - [x] 植物探险
+- [x] 旅行原木
+- [x] 幸运宝藏
 - [x] 日志清理
 
 ### 战斗类
 
 - [x] 碎片挑战（巨人危机、邪恶入侵，支持自定义植物配置）
 - [x] 双人对决（支持自选/帮选模式，僵尸释放时机及强化buff配置）
-- [ ] 创意庭院（开发中...）
+- [x] 时空秘境（地宫遗迹无尽模式）
+- [x] 刷胜场刷金币（埃及第1，8关，功夫第13关）
+- [x] 无尽挑战（自定义布阵，可视化配置网页）
+- [x] 创意庭院（刷游玩币，点赞）
 
 ## 如何参与开发
 
@@ -34,6 +39,15 @@
 2. 本项目基于 **[MaaFramework](https://github.com/MaaXYZ/MaaFramework)** 驱动，Pipeline 配置存放于 `assets/resource/pipeline/` 目录。
 3. 本项目前端使用了 **[MFAAvalonia](https://github.com/SweetSmellFox/MFAAvalonia)**。
 4. 提交代码前，请配置 Pre-commit Hooks 以确保代码格式规范（参考 `.pre-commit-config.yaml`）
+5. 开发教程[开发文档](https://docs.qq.com/doc/DZGhzQ1dGc1ZZRk9q)
+
+## 用户文档（使用教程）
+
+[maapvz教程在线文档（新版）](https://daoyanxiaoz.github.io/Maapvz_User_md/index.html)
+
+## 常见问题
+
+[使用时会遇到的常见问题](https://daoyanxiaoz.github.io/Maapvz_User_md/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98.html)
 
 ## 鸣谢
 
