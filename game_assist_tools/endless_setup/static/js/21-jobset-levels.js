@@ -1,0 +1,257 @@
+
+// ============================================================
+// 关卡链：表1 从 1 开始；表N 从表N-1 的结束关开始（线性推进）
+// ============================================================
+// 阵容表：关卡区间由「相邻阵容之间的一个转阵容关」决定（像关键帧）
+//   阵容1 = 1 → B1，阵容2 = B1 → B2，……，最后一个阵容 = B(n-1) → MAX
+//   中间那个数字（B）同时是「上一阵容的结束关」和「下一阵容的起始关」，
+//   所以改一处，两边同步变。
+// ============================================================
+const JOB_MAX_LEVEL = 149;
+
+// 取某个阵容的区间 [from, to)
+function jobRangeOfTable(i) {
+    const n = jobTables.length;
+    let from = 1;
+    if (i > 0) {
+        const p = Number(jobTables[i - 1].to_level);
+        from = (p > 0) ? p : 1;
+    }
+    let to;
+    if (i < n - 1) {
+        const c = Number(jobTables[i].to_level);
+        to = (c > 0) ? c : JOB_MAX_LEVEL;
+    } else {
+        to = JOB_MAX_LEVEL;      // 最后一个阵容一直到最大关卡
+    }
+    return { from: from, to: to };
+}
+
+// 删表/新增/改数字后统一重算所有区间，保证首尾相接、不越界
+function jobRenumberTables() {
+    if (!jobTables.length) return;
+    for (let i = 0; i < jobTables.length; i++) {
+        if (i === 0) {
+            jobTables[i].from_level = 1;
+        } else {
+            const prevTo = Number(jobTables[i - 1].to_level);
+            jobTables[i].from_level = (prevTo > 0) ? prevTo : 1;
+        }
+        if (i === jobTables.length - 1) {
+            // 最后一个阵容没有「转阵容关」→ 一直到最后
+            jobTables[i].to_level = '';
+        } else {
+            let v = Number(jobTables[i].to_level);
+            const lo = Number(jobTables[i].from_level) + 1;          // 至少比起始关大 1
+            if (!(v > 0)) v = Math.min(JOB_MAX_LEVEL, lo);           // 没设就用最小合法值
+            if (v < lo) v = lo;
+            if (v > JOB_MAX_LEVEL) v = JOB_MAX_LEVEL;
+            jobTables[i].to_level = String(v);
+        }
+    }
+}
+
+function jobFillForm() {
+    const t = jobTables[currentTable];
+    if (!t) return;
+    const r = jobRangeOfTable(currentTable);
+    const isLast = (currentTable === jobTables.length - 1);
+
+    // 补给选取是每个阵容独立的，切阵容时要重渲染
+    try { jobRenderSupply(); } catch (e) {}
+
+    const elFrom = document.getElementById('tfRangeFrom');
+    const elTo = document.getElementById('tfRangeTo');
+    if (elFrom) elFrom.textContent = r.from;
+    if (elTo) elTo.textContent = isLast ? (r.to + '（到最后）') : r.to;
+
+    // 中间那个「转阵容关」：最后一个阵容没有
+    const bd = document.getElementById('tfBoundary');
+    const hint = document.getElementById('tfBoundaryHint');
+    if (bd) {
+        bd.style.display = isLast ? 'none' : '';
+        if (!isLast) {
+            bd.value = Number(t.to_level) || '';
+            bd.min = String(r.from + 1);
+            bd.max = String(JOB_MAX_LEVEL);
+        }
+    }
+    if (hint) {
+        hint.textContent = isLast
+            ? '（最后一个阵容，一直执行到最大关卡）'
+            : ('改这个数字 → 阵容' + (currentTable + 1) + ' 的起始关同步变成它');
+    }
+
+    const lm = document.getElementById('tfLineupMode');
+    if (lm) lm.value = t.lineupMode;
+    const dn = document.getElementById('tfDeckNo');
+    if (dn) dn.value = t.deckNo;
+    const dbx = document.getElementById('tfDeckBox');
+    if (dbx) dbx.style.display = t.lineupMode === 'deck' ? 'inline-flex' : 'none';
+}
+
+function jobSyncForm() {
+    const t = jobTables[currentTable];
+    if (!t) return;
+    // 关卡不在表单里直接改（由 jobRenumberTables + 转阵容关输入框负责）
+    const lm = document.getElementById('tfLineupMode');
+    if (lm) t.lineupMode = lm.value;
+    const dn = document.getElementById('tfDeckNo');
+    if (dn) t.deckNo = Math.max(1, parseInt(dn.value) || 1);
+    jobRenderTabs();
+}
+
+// 改「转阵容关」：像关键帧一样，只改这一个数，两边同时生效
+function jobSetBoundary(v) {
+    const t = jobTables[currentTable];
+    if (!t) return;
+    if (currentTable >= jobTables.length - 1) return;   // 最后一个阵容没有转阵容关
+
+    const r = jobRangeOfTable(currentTable);
+    let n = parseInt(v);
+    const lo = r.from + 1;
+    if (!(n > 0)) { jobFillForm(); return; }             // 空值 → 还原显示，不写入
+    if (n < lo) n = lo;
+    if (n > JOB_MAX_LEVEL) n = JOB_MAX_LEVEL;
+
+    t.to_level = String(n);
+    jobRenumberTables();          // 重算全部区间（本阵容结束关 = 下一阵容起始关）
+    jobRenderTabs();
+    jobFillForm();
+    jobSaveLocal();
+    setStatus('🔀 阵容' + (currentTable + 1) + ' 结束关 = 阵容' + (currentTable + 2) + ' 起始关 = ' + n);
+}
+
+function jobRenderTabs() {
+    const box = document.getElementById('jobTableTabs');
+    if (!box) return;
+    box.innerHTML = '';
+    jobTables.forEach(function (t, i) {
+        const r = jobRangeOfTable(i);
+        const el = document.createElement('span');
+        el.style.cssText = 'padding:3px 12px;border-radius:6px;font-size:12px;cursor:pointer;user-select:none;'
+            + (i === currentTable ? 'background:#2d7aff;color:#fff;' : 'background:#e9ecf0;color:#333;');
+        el.textContent = '阵容' + (i + 1) + '（' + r.from + '-' + r.to + '）';
+        el.title = '关卡 ' + r.from + ' ~ ' + r.to;
+        el.addEventListener('click', function () { jobLoadTable(i); });
+        box.appendChild(el);
+    });
+}
+
+function jobFindPlant(name) {
+    if (!name || !plantCache) return null;
+    return plantCache.find(p => p.name === name) || null;
+}
+
+function placePlantOnBoard(board, slot, r, c) {
+    const cellArr = board[r] && board[r][c];
+    if (!cellArr) return false;
+    const t0 = jobTables[currentTable];
+    const key = (slot === 9) ? 'feed' : (slot === 10 ? 'shovel' : 'card' + slot);
+    const mode = jobSlotMode(t0, key);          // 当前形态：单次 / 循环
+
+    if (slot === 9) {                                   // 槽9 = 喂豆位置
+        // 同一格：同形态只允许一个；单次允许重复（但喂豆通常一格一个）
+        if (cellArr.some(it => it.id === 'feed' && jobItemMode(it) === mode)) return false;
+        saveBoardState();
+        cellArr.push({ id: 'feed', label: '喂豆', type: 'feed', mode: mode,
+                       col: c + 1, row: r + 1, seq: jobNextSeq(board, 'feed', mode) });
+        return true;
+    }
+    if (slot === 10) {                                  // 槽10 = 铲子标记
+        if (cellArr.some(it => it.id === 'shovel' && jobItemMode(it) === mode)) return false;
+        saveBoardState();
+        cellArr.push({ id: 'shovel', label: '铲子', type: 'shovel', mode: mode,
+                       col: c + 1, row: r + 1, seq: jobNextSeq(board, 'shovel', mode) });
+        return true;
+    }
+    const name = t0 && t0.slots[slot];
+    if (!name) return false;
+
+    // 循环形态：同格同槽只能一个；单次形态：可在同一格重复种（上限 12 次防误点）
+    const _same = cellArr.filter(it => it.id === 'card' + slot && jobItemMode(it) === mode).length;
+    if (mode === 'loop' && _same >= 1) return false;
+    if (mode === 'once' && _same >= 12) return false;
+
+    const info = jobFindPlant(name) || {};
+    saveBoardState();
+    cellArr.push({
+        id: 'card' + slot,
+        label: name,
+        type: 'plant',
+        mode: mode,                              // 落点形态：决定棋盘标记颜色与所属分区
+        col: c + 1,
+        row: r + 1,
+        seq: jobNextSeq(board, 'card' + slot, mode),   // 单次/循环各自从 1 开始
+        plant: { name: name, img: info.img || null, rare: (typeof info.rare === 'number' ? info.rare : 0) }
+    });
+    return true;
+}
+
+// (形态, 槽) 内下一个序号：单次与循环各自独立从 1 开始
+function jobNextSeq(board, scopeId, mode) {
+    let max = 0;
+    if (!board) return 1;
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            (board[r][c] || []).forEach(it => {
+                if (it.id !== scopeId) return;
+                if (jobItemMode(it) !== mode) return;   // 只看同形态
+                if (typeof it.seq === 'number' && it.seq > max) max = it.seq;
+            });
+        }
+    }
+    return max + 1;
+}
+
+// 保证棋盘上每个带内容项都有 seq（旧数据 / 本地缓存恢复时补齐），并返回“id@r,c -> seq”映射
+function jobEnsureSeq(board) {
+    if (!board) return;
+    // 逐槽补齐：每个槽（card1..card8 / feed / shovel）各自从 1 开始编号
+    const maxBy = {};
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            (board[r][c] || []).forEach(it => {
+                if (typeof it.seq === 'number') {
+                    maxBy[it.id] = Math.max(maxBy[it.id] || 0, it.seq);
+                }
+            });
+        }
+    }
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            (board[r][c] || []).forEach(it => {
+                if (typeof it.seq !== 'number') {
+                    maxBy[it.id] = (maxBy[it.id] || 0) + 1;
+                    it.seq = maxBy[it.id];
+                }
+            });
+        }
+    }
+    // 全局落子序号 ord：只用于「同一槽内 seq 相同时」的稳定排序兜底，
+    // **不写进 JSON**（见 jobBuild）。跨槽的真实先后由 slotOrder/loopOrder 表达。
+    jobEnsureOrd(board);
+}
+
+// 给棋盘上每个 chip 补一个全局递增的 ord（内存态，不持久化）。
+// 目的：jobPlacementsOf 的排序在 seq 相同/缺失时仍能保持稳定。
+function jobEnsureOrd(board) {
+    if (!board) return;
+    let next = 0;
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            (board[r][c] || []).forEach(function (it) {
+                if (typeof it.ord === 'number' && it.ord >= 0) {
+                    next = Math.max(next, it.ord + 1);
+                }
+            });
+        }
+    }
+    for (let r = 0; r < board.length; r++) {
+        for (let c = 0; c < board[r].length; c++) {
+            (board[r][c] || []).forEach(function (it) {
+                if (typeof it.ord !== 'number') { it.ord = next++; }
+            });
+        }
+    }
+}
