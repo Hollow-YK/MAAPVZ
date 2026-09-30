@@ -460,3 +460,6 @@ config
 debug
 .venv
 .DS_Store
+
+# 作业集（网页端本地产出：jobs/<code>.json + current.json）
+assets/resource/jobs/
